@@ -23,7 +23,7 @@ import requests
 
 # Публичный ключ API отзывов 2ГИС (из открытых страниц 2ГИС).
 API_KEY = "6e7e1929-4ea9-4a5d-8c05-d601860389bd"
-REVIEWS_PER_BRANCH = 100   # сколько последних отзывов тянуть на филиал (кратно 50)
+REVIEWS_PER_BRANCH = 600   # тянуть все отзывы (по 50 на страницу)
 
 # Базовые рейтинг и число отзывов (на случай, если API не вернёт их в мете).
 R_DEF   = {"mega":4.7,"auezov":4.6,"alatau":4.4,"medeu":4.0,"shym":4.6,"aktau":4.8,"aktobe":4.6,"atyrau":4.5}
@@ -127,10 +127,12 @@ def build():
 
         # сентимент по филиалу
         cnt = {"pos":0,"neu":0,"neg":0}
-        praise, prob = {}, {}
+        praise, prob, monthly = {}, {}, {}
         for rv in reviews:
             s = sentiment(rv["rating"], rv["text"])
             cnt[s] += 1
+            ym = (rv.get("date") or "")[:7]
+            if ym: monthly[ym] = monthly.get(ym, 0) + 1
             if rv["text"] and len(rv["text"]) > 3:
                 th = classify_theme(rv["text"])
                 if th == "Прочее": continue
@@ -153,9 +155,17 @@ def build():
             "r": rating, "votes": b["votes"], "rev": rev_count,
             "answered": answered_pct,
             "sent": sent if reviews else {"pos":0,"neu":0,"neg":0},
+            "monthly": monthly,
             "praise": praise_list or [["Нет данных",1]],
             "prob": prob_list or [["Нет данных",1,"neu"]],
         })
+
+    total_rev = sum(b["rev"] for b in branches_out)
+    if total_rev == 0:
+        print("\n! Отзывы не получены (2ГИС, вероятно, заблокировал запросы с этого сервера).")
+        print("  data.json НЕ перезаписан, чтобы не потерять прежние данные.")
+        print("  Запустите сбор с компьютера в Казахстане — там 2ГИС доступен.")
+        sys.exit(0)
 
     data = {
         "collected_at": datetime.date.today().isoformat(),
