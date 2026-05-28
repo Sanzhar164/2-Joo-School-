@@ -93,6 +93,15 @@
   .ribbon{display:inline-block;font-size:11px;font-weight:700;color:var(--brand);background:color-mix(in srgb,var(--brand) 14%,transparent);padding:3px 10px;border-radius:20px}
   .split{display:grid;grid-template-columns:1fr 1fr;gap:18px}@media(max-width:760px){.split{grid-template-columns:1fr}}
   .note{font-size:11.5px;color:var(--muted);font-style:italic;margin-top:8px}
+  .tctl{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .tctl .yb{font-size:12px;font-weight:600;border:1px solid var(--line);background:var(--panel2);color:var(--muted);border-radius:20px;padding:5px 11px;cursor:pointer;transition:.12s}
+  .tctl .yb:hover{color:var(--ink);border-color:var(--brand)}
+  .tctl .yb.active{background:var(--brand);color:#04201a;border-color:var(--brand)}
+  .tctl .yb:disabled{opacity:.4;cursor:not-allowed}
+  .tctl .sep{width:1px;height:18px;background:var(--line);margin:0 4px}
+  .chartwrap{position:relative}
+  .tip{position:absolute;left:0;top:0;pointer-events:none;background:var(--panel);border:1px solid var(--brand);border-radius:9px;padding:6px 10px;font-size:12px;color:var(--ink);box-shadow:var(--shadow);opacity:0;transform:translate(-50%,-130%);white-space:nowrap;transition:opacity .08s;z-index:5}
+  .tip b{color:var(--brand);font-size:14px}
   .foot{font-size:12px;color:var(--muted);text-align:center;margin-top:42px;line-height:1.7}
 </style>
 </head>
@@ -218,13 +227,26 @@ const TEMPLATES=[
 const TREND={labels:['Сен','Окт','Ноя','Дек','Янв','Фев','Мар','Апр','Май'],vol:[34,46,58,71,118,84,79,132,96]};
 const MONTHS_RU=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
 const monLabel=ym=>{const [y,m]=ym.split('-');return MONTHS_RU[(+m)-1]+' '+y.slice(2);};
-// реальный помесячный ряд: для выбранного филиала или сумма по всей сети
-function monthlySeries(){
-  const b=curBr(), src=b?[b]:BR, acc={};let any=false;
-  src.forEach(x=>{if(x.monthly){any=true;for(const k in x.monthly)acc[k]=(acc[k]||0)+x.monthly[k];}});
+const dayLabel=ymd=>{const p=ymd.split('-');return p[2]+'.'+p[1];};
+// состояние графика
+let trendYear='all', trendGran='month';
+const hasDaily=()=> (curBr()?[curBr()]:BR).some(x=>x.daily);
+function aggMonth(daily){const o={};for(const k in daily)o[k.slice(0,7)]=(o[k.slice(0,7)]||0)+daily[k];return o;}
+function availYears(){const set=new Set(),src=curBr()?[curBr()]:BR;
+  src.forEach(x=>{const m=x.daily||x.monthly||{};for(const k in m)set.add(k.slice(0,4));});
+  return [...set].sort();}
+// гибкий ряд: год (или все) × месяцы/дни, для филиала или всей сети
+function trendSeries(){
+  const src=curBr()?[curBr()]:BR, acc={};let any=false;
+  let gran=trendGran; if(gran==='day' && !hasDaily()) gran='month';
+  src.forEach(x=>{
+    let m = gran==='day' ? (x.daily||{}) : (x.daily?aggMonth(x.daily):(x.monthly||{}));
+    if(Object.keys(m).length) any=true;
+    for(const k in m){ if(trendYear!=='all' && k.slice(0,4)!==trendYear) continue; acc[k]=(acc[k]||0)+m[k]; }
+  });
   if(!any) return null;
   const keys=Object.keys(acc).sort();
-  return {labels:keys.map(monLabel), data:keys.map(k=>acc[k])};
+  return {labels:keys.map(k=>gran==='day'?dayLabel(k):monLabel(k)), data:keys.map(k=>acc[k]), keys, gran};
 }
 
 /* ===================== РАСЧЁТЫ ===================== */
@@ -271,13 +293,15 @@ function line(x,w,h,labels,data,col){const padL=30,padR=12,padT=14,padB=24,gw=w-
   const g=x.createLinearGradient(0,padT,0,padT+gh);g.addColorStop(0,col+'55');g.addColorStop(1,col+'00');
   x.beginPath();x.moveTo(px(0),py(data[0]));data.forEach((v,i)=>x.lineTo(px(i),py(v)));x.lineTo(px(n-1),padT+gh);x.lineTo(px(0),padT+gh);x.closePath();x.fillStyle=g;x.fill();
   x.beginPath();x.moveTo(px(0),py(data[0]));data.forEach((v,i)=>x.lineTo(px(i),py(v)));x.strokeStyle=col;x.lineWidth=2.4;x.lineJoin='round';x.stroke();
-  const step=Math.ceil(n/12);
-  data.forEach((v,i)=>{x.beginPath();x.arc(px(i),py(v),3,0,7);x.fillStyle=col;x.fill();
-    if(i%step===0||i===n-1){x.fillStyle=cv('--muted');x.font='10px ui-sans-serif';x.textAlign='center';x.textBaseline='top';x.fillText(labels[i],px(i),padT+gh+6);}});}
+  const step=Math.ceil(n/12), pts=[];
+  data.forEach((v,i)=>{const X=px(i),Y=py(v);pts.push({x:X,y:Y,v,label:labels[i]});x.beginPath();x.arc(X,Y,3,0,7);x.fillStyle=col;x.fill();
+    if(i%step===0||i===n-1){x.fillStyle=cv('--muted');x.font='10px ui-sans-serif';x.textAlign='center';x.textBaseline='top';x.fillText(labels[i],X,padT+gh+6);}});
+  return pts;}
 function rr(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();}
 
 reg('cSent',(x,w,h)=>{const s=scSent();donut(x,w,h,[{v:s.pos,c:cv('--pos')},{v:s.neu,c:cv('--neu')},{v:s.neg,c:cv('--neg')}],{big:s.pos+'%',sm:'позитив'});});
-reg('cTrend',(x,w,h)=>{const s=monthlySeries(); if(s&&s.labels.length) line(x,w,h,s.labels,s.data,cv('--brand')); else line(x,w,h,TREND.labels,TREND.vol,cv('--brand'));});
+let trendPts=[];
+reg('cTrend',(x,w,h)=>{const s=trendSeries(); if(s&&s.labels.length) trendPts=line(x,w,h,s.labels,s.data,cv('--brand')); else {trendPts=[];line(x,w,h,TREND.labels,TREND.vol,cv('--brand'));}});
 reg('cBranch',(x,w,h)=>hbars(x,w,h,[...BR].sort((a,b)=>b.r-a.r).map(b=>({l:b.nm.replace('JOO ',''),v:b.r,t:b.r.toFixed(1),c:cv(rc(b.r).slice(4,-1))})),5));
 reg('cThemeP',(x,w,h)=>{const d=scPraise(),mx=Math.max(...d.map(p=>p[1]),1);hbars(x,w,h,d.map(p=>({l:p[0],v:p[1],t:p[1]+'%',c:cv('--pos')})),mx);});
 reg('cThemeN',(x,w,h)=>{const d=scProb(),mx=Math.max(...d.map(p=>p[1]),1);hbars(x,w,h,d.map(p=>({l:p[0],v:p[1],t:String(p[1]),c:p[2]=='neg'?cv('--neg'):cv('--neu')})),mx);});
@@ -319,7 +343,7 @@ function obView(){const b=curBr();const s=scSent();
     return scopeHead()+`<p class="lead">Сводка по всей сети. Выбери филиал в строке выше, чтобы увидеть отдельный отчёт по нему. Рейтинги и число оценок — фактические с 2ГИС; сентимент, NPS и тренд — оценочные по выборке.</p>
       ${kpiRow()}
       <div class="grid c21" style="margin-top:16px">
-        <div class="card"><h2 class="sec" style="margin-top:0">Отзывы по месяцам · вся сеть</h2><canvas id="cTrend" style="height:230px"></canvas>${trendNote()}</div>
+        ${trendCard('Отзывы по периодам · вся сеть')}
         ${right}</div>
       <div class="grid c21" style="margin-top:16px">
         <div class="card"><h2 class="sec" style="margin-top:0">Рейтинг по филиалам</h2><canvas id="cBranch" style="height:260px"></canvas></div>
@@ -329,14 +353,26 @@ function obView(){const b=curBr();const s=scSent();
   // branch overview
   return scopeHead()+`<p class="lead">Отдельный отчёт по филиалу <b>${b.nm}</b> (${b.city}). Ниже — его рейтинг, сентимент, что хвалят и что критикуют именно в этом филиале.</p>
     ${kpiRow()}
-    <div class="card" style="margin-top:16px"><h2 class="sec" style="margin-top:0">Отзывы по месяцам · ${b.nm}</h2><canvas id="cTrend" style="height:220px"></canvas>${trendNote()}</div>
+    <div style="margin-top:16px">${trendCard('Отзывы по периодам · '+b.nm)}</div>
     <div class="grid c21" style="margin-top:16px">
       <div class="card"><h2 class="sec" style="margin-top:0">Что хвалят в этом филиале</h2><canvas id="cThemeP" style="height:200px"></canvas></div>
       ${right}</div>
     <div class="card" style="margin-top:16px"><h2 class="sec" style="margin-top:0">Проблемные темы филиала</h2><canvas id="cThemeN" style="height:${Math.max(160,b.prob.length*44)}px"></canvas></div>`;}
 
-function trendNote(){return monthlySeries()
-  ? `<p class="note">По реальным датам отзывов, собранных с 2ГИС.</p>`
+function trendControls(){
+  const years=availYears();
+  const yb=`<button class="yb${trendYear==='all'?' active':''}" data-ty="all">Все</button>`+
+    years.map(y=>`<button class="yb${trendYear===y?' active':''}" data-ty="${y}">${y}</button>`).join('');
+  const dayOff=hasDaily()?'':' disabled title="нужно пересобрать данные новой кнопкой"';
+  const gb=`<button class="yb${trendGran==='month'?' active':''}" data-tg="month">Месяцы</button>`+
+    `<button class="yb${trendGran==='day'?' active':''}" data-tg="day"${dayOff}>Дни</button>`;
+  return `<div class="tctl">${yb}<span class="sep"></span>${gb}</div>`;}
+function trendCard(title){
+  return `<div class="card"><h2 class="sec" style="margin-top:0">${title}</h2>${trendControls()}
+    <div class="chartwrap"><canvas id="cTrend" style="height:230px"></canvas><div class="tip" id="cTrendTip"></div></div>
+    ${trendNote()}</div>`;}
+function trendNote(){const s=trendSeries();return s
+  ? `<p class="note">По реальным датам отзывов с 2ГИС. Наведи на точку — покажет число отзывов.</p>`
   : `<p class="note">Иллюстративно: реальные даты появятся после сбора новой версией кнопки.</p>`;}
 
 function praiseView(){const b=curBr();const d=scPraise();const q=scRevs().filter(r=>r.s=='pos').slice(0,6);
@@ -425,7 +461,7 @@ nav.addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;t
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id=='v-'+tab));
   window.scrollTo({top:0,behavior:'smooth'});requestAnimationFrame(drawVisible);});
 
-scopebar.addEventListener('change',e=>{if(e.target.id!=='scopeSel')return;cur=e.target.value;revPage=0;render();window.scrollTo({top:0,behavior:'smooth'});});
+scopebar.addEventListener('change',e=>{if(e.target.id!=='scopeSel')return;cur=e.target.value;revPage=0;trendYear='all';render();window.scrollTo({top:0,behavior:'smooth'});});
 
 const tb=document.getElementById('themeBtn');
 tb.addEventListener('click',()=>{const l=document.documentElement.getAttribute('data-theme')=='light';
@@ -434,10 +470,24 @@ tb.addEventListener('click',()=>{const l=document.documentElement.getAttribute('
 main.addEventListener('input',e=>{if(['q','fb','fs'].includes(e.target.id)){revPage=0;renderRevs();}});
 main.addEventListener('change',e=>{if(['fb','fs'].includes(e.target.id)){revPage=0;renderRevs();}});
 main.addEventListener('click',e=>{
+  const yb=e.target.closest('.yb[data-ty]');if(yb){trendYear=yb.dataset.ty;render();return;}
+  const gb=e.target.closest('.yb[data-tg]');if(gb&&!gb.disabled){trendGran=gb.dataset.tg;render();return;}
   const pg=e.target.closest('#revPg button');if(pg){revPage=+pg.dataset.p;renderRevs();return;}
   const th=e.target.closest('#branchCard th');if(th){const k=th.dataset.k;if(sortKey==k)sortDir*=-1;else{sortKey=k;sortDir=(k=='nm'||k=='city')?1:-1;}document.getElementById('branchCard').innerHTML=branchTable();return;}
   const tr=e.target.closest('tr.click');if(tr){cur=tr.dataset.go;tab='ob';revPage=0;render();window.scrollTo({top:0,behavior:'smooth'});}
 });
+// тултип на графике динамики
+main.addEventListener('mousemove',e=>{
+  const c=document.getElementById('cTrend'),tip=document.getElementById('cTrendTip');
+  if(!c||!tip||!trendPts.length)return;
+  if(e.target!==c){tip.style.opacity=0;return;}
+  const r=c.getBoundingClientRect(),mx=e.clientX-r.left;
+  let best=null,bd=1e9;
+  for(const p of trendPts){const d=Math.abs(p.x-mx);if(d<bd){bd=d;best=p;}}
+  if(best&&bd<28){tip.innerHTML=`${best.label}: <b>${best.v}</b> отз.`;tip.style.left=best.x+'px';tip.style.top=best.y+'px';tip.style.opacity=1;}
+  else tip.style.opacity=0;
+});
+main.addEventListener('mouseleave',()=>{const tip=document.getElementById('cTrendTip');if(tip)tip.style.opacity=0;});
 let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(drawVisible,150);});
 
 function recompute(){
