@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JOO School — аналитика отзывов 2ГИС</title>
+<style>
+  :root{
+    --bg:#0c0e12;--bg2:#11141a;--panel:#161a21;--panel2:#1b2029;
+    --ink:#eef1f5;--muted:#8b93a1;--line:#262c36;
+    --brand:#36c5a8;--brand2:#28a98f;
+    --pos:#34d399;--neg:#f4576b;--neu:#f5b945;--info:#5b9bf2;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 14px 50px rgba(0,0,0,.45);--r:20px;
+  }
+  [data-theme="light"]{
+    --bg:#f2f4f7;--bg2:#fff;--panel:#fff;--panel2:#f6f8fb;
+    --ink:#11151c;--muted:#697186;--line:#e6eaf0;--brand:#138a72;--brand2:#0f7a64;
+    --shadow:0 1px 2px rgba(20,30,50,.05),0 12px 40px rgba(20,30,50,.08);
+  }
+  *{box-sizing:border-box}html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.5}
+  body{background-image:radial-gradient(1200px 500px at 80% -10%,color-mix(in srgb,var(--brand) 10%,transparent),transparent),radial-gradient(900px 400px at 0% 0%,color-mix(in srgb,var(--info) 8%,transparent),transparent)}
+  header{position:sticky;top:0;z-index:40;backdrop-filter:saturate(1.5) blur(14px);background:color-mix(in srgb,var(--bg) 80%,transparent);border-bottom:1px solid var(--line)}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 0}
+  .brand{display:flex;align-items:center;gap:13px}
+  .logo{width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,var(--brand),var(--brand2));display:grid;place-items:center;color:#04201a;font-weight:900;letter-spacing:-1px;font-size:14px;box-shadow:var(--shadow)}
+  .brand h1{font-size:18px;margin:0;letter-spacing:-.3px}.brand p{margin:1px 0 0;font-size:12.5px;color:var(--muted)}
+  .toggle{cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:30px;padding:8px 14px;font-size:13px;display:flex;gap:7px;align-items:center}
+  .scopebar{display:flex;gap:7px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none;align-items:center}
+  .scopebar::-webkit-scrollbar{display:none}
+  .slab{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-right:4px;white-space:nowrap}
+  .scopesel{appearance:none;-webkit-appearance:none;cursor:pointer;font-size:14px;font-weight:600;color:var(--ink);
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 40px 10px 14px;min-width:280px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 20px) 18px,calc(100% - 15px) 18px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;box-shadow:var(--shadow)}
+  .scopesel:hover{border-color:var(--brand)}
+  .scopesel:focus{outline:2px solid color-mix(in srgb,var(--brand) 45%,transparent)}
+  .sc{white-space:nowrap;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:30px;transition:.15s}
+  .sc:hover{border-color:var(--brand)}
+  .sc.active{background:var(--brand);color:#04201a;border-color:var(--brand);box-shadow:0 4px 14px color-mix(in srgb,var(--brand) 30%,transparent)}
+  .sc.all{background:var(--panel2)}.sc.all.active{background:var(--brand)}
+  nav{display:flex;gap:4px;overflow-x:auto;padding:0 0 12px;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  .tab{white-space:nowrap;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:13.5px;font-weight:600;padding:9px 14px;border-radius:11px;display:flex;gap:7px;align-items:center;transition:.15s}
+  .tab:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 7%,transparent)}
+  .tab.active{color:#04201a;background:var(--brand)}
+  main{max-width:1200px;margin:0 auto;padding:24px 20px 90px}
+  .view{display:none;animation:fade .4s cubic-bezier(.2,.7,.2,1)}.view.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .scopehead{display:flex;align-items:center;gap:12px;margin:0 0 18px;flex-wrap:wrap}
+  .scopehead .tag{font-size:12px;font-weight:700;color:var(--brand);background:color-mix(in srgb,var(--brand) 13%,transparent);padding:5px 12px;border-radius:20px}
+  .lead{font-size:14px;color:var(--muted);max-width:800px;margin:-2px 0 20px}
+  h2.sec{font-size:11.5px;text-transform:uppercase;letter-spacing:1.8px;color:var(--muted);font-weight:700;margin:26px 0 14px}
+  .grid{display:grid;gap:16px}.kpis{grid-template-columns:repeat(4,1fr)}.c21{grid-template-columns:1.4fr 1fr}.c2{grid-template-columns:1fr 1fr}
+  @media(max-width:900px){.kpis{grid-template-columns:1fr 1fr}.c21,.c2{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .kpi .lab{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.7px}
+  .kpi .big{font-size:42px;font-weight:800;letter-spacing:-2px;margin:6px 0 2px;line-height:1}
+  .kpi .sub{font-size:12.5px;color:var(--muted)}.stars{letter-spacing:1px}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
+  .p-pos{background:color-mix(in srgb,var(--pos) 16%,transparent);color:var(--pos)}
+  .p-neg{background:color-mix(in srgb,var(--neg) 16%,transparent);color:var(--neg)}
+  .p-neu{background:color-mix(in srgb,var(--neu) 20%,transparent);color:var(--neu)}
+  .p-info{background:color-mix(in srgb,var(--info) 16%,transparent);color:var(--info)}
+  canvas{display:block;width:100%}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;color:var(--muted)}
+  .legend i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:middle}
+  .bch{display:flex;align-items:center;gap:10px;margin:7px 0}.bch .nm{font-weight:700;font-size:14px}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:7px;vertical-align:middle}
+  .mini{font-size:12px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line)}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);cursor:pointer;user-select:none}
+  th:hover{color:var(--ink)}td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr.click{cursor:pointer}tr.click:hover td{background:color-mix(in srgb,var(--brand) 7%,transparent)}
+  .quote{border-left:3px solid var(--line);padding:5px 0 5px 14px;margin:13px 0;font-size:14.5px}
+  .quote .meta{font-size:12px;color:var(--muted);margin-top:7px}
+  .cloud{display:flex;flex-wrap:wrap;gap:9px 15px;align-items:baseline;padding:4px 2px}
+  .cloud span{font-weight:700;line-height:1}
+  input,select{font-size:13px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--ink)}
+  input:focus,select:focus{outline:2px solid color-mix(in srgb,var(--brand) 45%,transparent)}
+  .rev{border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:11px 0;background:var(--panel2)}
+  .rev .h{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:7px}
+  .rev .t{font-size:14.5px}.rev .m{font-size:11.5px;color:var(--muted);margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
+  .pg{display:flex;gap:6px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+  .pg button{border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:9px;padding:7px 12px;cursor:pointer;font-size:13px}
+  .pg button.active{background:var(--brand);color:#04201a;border-color:var(--brand)}
+  .prio{font-size:11px;font-weight:800;padding:3px 9px;border-radius:7px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+  .crit{background:var(--neg);color:#fff}.imp{background:var(--neu);color:#3d2c00}.nice{background:var(--info);color:#fff}
+  .tmpl{background:var(--panel2);border:1px dashed var(--line);border-radius:13px;padding:14px 16px;margin:12px 0;font-size:14px}
+  .tmpl b{font-size:11.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--brand)}
+  .ribbon{display:inline-block;font-size:11px;font-weight:700;color:var(--brand);background:color-mix(in srgb,var(--brand) 14%,transparent);padding:3px 10px;border-radius:20px}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:18px}@media(max-width:760px){.split{grid-template-columns:1fr}}
+  .note{font-size:11.5px;color:var(--muted);font-style:italic;margin-top:8px}
+  .foot{font-size:12px;color:var(--muted);text-align:center;margin-top:42px;line-height:1.7}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand"><div class="logo">JOO</div>
+        <div><h1>JOO School · аналитика отзывов</h1><p>Сеть из 8 филиалов · 2ГИС · <span id="updatedAt">загрузка…</span></p></div></div>
+      <button class="toggle" id="themeBtn">☀️ Светлая</button>
+    </div>
+    <div class="scopebar" id="scopebar"></div>
+    <nav id="nav"></nav>
+  </div>
+</header>
+<main id="main"></main>
+
+<script>
+/* ===================== ДАННЫЕ ===================== */
+let BR=[
+ {id:'mega',  nm:'JOO Mega',    city:'Алматы', dist:'Бостандыкский р-н', addr:'пер. Дружбы, 14Б',     r:4.7,votes:522,rev:144,
+   sent:{pos:82,neu:6,neg:12},
+   praise:[['Кураторы и завуч',80],['Атмосфера',55],['Поступления, гранты',45],['Ивенты',40]],
+   prob:[['Смена руководства',70,'neg'],['Текучка учителей',60,'neg'],['Качество vs цена',45,'neg'],['Ремонт здания',40,'neu'],['Форма',30,'neu']]},
+ {id:'auezov',nm:'JOO Auezov',  city:'Алматы', dist:'Ауэзовский р-н',    addr:'ул. Цветочная, 1/14',  r:4.6,votes:407,rev:117,
+   sent:{pos:80,neu:7,neg:13},
+   praise:[['Кураторы',70],['Science-классы',60],['Гранты/выпускники',40],['MUN, ивенты',35]],
+   prob:[['Цена vs «особый подход»',45,'neg'],['Молодые кураторы, «акты»',35,'neu'],['Опыт учителей',30,'neu']]},
+ {id:'alatau',nm:'JOO Alatau',  city:'Алматы', dist:'Алатауский р-н',    addr:'ул. Байтерекова, 3',   r:4.4,votes:670,rev:223,
+   sent:{pos:71,neu:8,neg:21},
+   praise:[['Учителя поимённо',75],['Добрая атмосфера',55],['Знания',40]],
+   prob:[['Смена руководства',50,'neg'],['Туалеты',45,'neu'],['Форма/телефоны',45,'neu'],['Молодые учителя',35,'neu'],['Цена',30,'neg']]},
+ {id:'medeu', nm:'JOO Medeu',   city:'Алматы', dist:'Медеуский р-н',     addr:'ул. Халиуллина, 210а', r:4.0,votes:385,rev:108,
+   sent:{pos:60,neu:8,neg:32},
+   praise:[['Сильные предметники',55],['Тёплые кабинеты',35],['ЕНТ-подготовка',30]],
+   prob:[['Буллинг учителей',70,'neg'],['Нарушение приватности',55,'neg'],['Вода/электричество',50,'neg'],['Форма',45,'neu'],['Отток учеников',40,'neg'],['Качество vs цена',40,'neg']]},
+ {id:'shym',  nm:'JOO Shymkent',city:'Шымкент',dist:'Туран р-н',         addr:'пр. Байдибек би, 14/1',r:4.6,votes:982,rev:232,
+   sent:{pos:78,neu:7,neg:15},
+   praise:[['Атмосфера',60],['Сильные предметники',55],['ЕНТ/гранты',40]],
+   prob:[['Рост цены (+130%)',65,'neg'],['Списывание на ЕНТ',45,'neg'],['Столовая дорогая',50,'neu'],['Жара/санузлы',45,'neu'],['Жалобы на завуча',35,'neg'],['Качество vs цена',40,'neg']]},
+ {id:'aktau', nm:'JOO Aktau',   city:'Актау',  dist:'31А мкр',           addr:'мкр 31А, 1/3',         r:4.8,votes:463,rev:81,
+   sent:{pos:88,neu:5,neg:7},
+   praise:[['Ақмаржан Айдарқызы',85],['PBL-проекты',55],['Гранты, результаты',50],['Атмосфера, безопасность',45]],
+   prob:[['Недоделанный ремонт',60,'neu'],['Холод/старая мебель',45,'neu'],['Текучка по предмету',40,'neg'],['Дорогая столовая',35,'neu']]},
+ {id:'aktobe',nm:'JOO Aktobe',  city:'Актобе', dist:'Алтын Орда',        addr:'мкр Алтын Орда, 3',    r:4.6,votes:272,rev:76,
+   sent:{pos:79,neu:7,neg:14},
+   praise:[['Кураторы (Ақиба и др.)',75],['Атмосфера, еда',50],['Стабилизация',45]],
+   prob:[['Невыполненные обещания',65,'neg'],['Текучка на старте',50,'neg'],['Качество vs цена',40,'neg'],['Спортзал, инвентарь',30,'neu']]},
+ {id:'atyrau',nm:'JOO Atyrau',  city:'Атырау', dist:'Ак Шагала',         addr:'ул. Н. Тлендиева, 38а',r:4.5,votes:203,rev:45,
+   sent:{pos:75,neu:8,neg:17},
+   praise:[['Математика (Шырайлым/Нұрай)',75],['Семейная атмосфера',55],['Связь с родителями',45]],
+   prob:[['Маленькое помещение',55,'neu'],['Жёсткая дисциплина',50,'neu'],['Пустой медпункт',45,'neg'],['Дорогая столовая',45,'neu']]},
+];
+let NM=Object.fromEntries(BR.map(b=>[b.id,b.nm]));
+let PRAISE_NET=[['Преподаватели и кураторы',72],['Атмосфера и забота',54],['Результаты (ЕНТ, гранты)',38],['Программа и методика',31],['Ивенты и развитие',27],['Инфраструктура',19]];
+let PROBLEMS_NET=[['Текучка учителей / руководство',64,'neg'],['Цена и оплата',58,'neg'],['Столовая: цена/качество',46,'neu'],['Инфраструктура и быт',44,'neu'],['Школьная форма',37,'neu'],['Качество «не за эти деньги»',34,'neg'],['Телефоны / дисциплина',29,'neu'],['Буллинг и поведение персонала',21,'neg']];
+let KW_POS=[['учителя',40],['апай топ',30],['лучшая школа',32],['кураторы',34],['ЕНТ',26],['атмосфера',24],['грант',22],['математика',21],['забота',20],['английский',19],['поступил в вуз',18],['ивенты',16],['прогресс',15],['чисто, новое',14],['рекомендую',14],['индивидуальный подход',13],['science-класс',12]];
+let KW_NEG=[['дорого',30],['текучка учителей',28],['не стоит денег',24],['столовая',22],['форма',20],['обещали',19],['телефоны',18],['молодые учителя',17],['туалеты',16],['ремонт',15],['буллинг',14],['строго',13],['сменили директора',12],['не готовят к ЕНТ',12],['нет воды',10]];
+let REVS=[
+ {b:'mega',s:'pos',th:'Преподаватели',t:'Кураторы и Айдана апай, физик Гүлзинат апай — благодаря им поступил(а) в университет. Школе можно доверять.'},
+ {b:'mega',s:'pos',th:'Атмосфера',t:'Лучшая школа в моей жизни, обожаю учителей. Не понимаю, откуда плохие отзывы.'},
+ {b:'mega',s:'neg',th:'Текучка/руководство',t:'В 10 классе уровень упал: сменили директора и завуча, хорошие учителя массово ушли. Хим-био профиль забросили.'},
+ {b:'mega',s:'neg',th:'Инфраструктура',t:'На филиал будто забили: краска отваливается, вода в туалетах то есть, то нет.'},
+ {b:'mega',s:'neg',th:'Качество/цена',t:'За эти деньги не стоит. Поступившие — благодаря себе и курсам, вклад школы минимальный.'},
+ {b:'mega',s:'neu',th:'Форма',t:'Обещали свободную форму, теперь требуют чёрный низ/белый верх.'},
+ {b:'auezov',s:'pos',th:'Программа',t:'Дочь в science-классе: химия, биология, физика на английском. Не пожалели, что перевели.'},
+ {b:'auezov',s:'pos',th:'Результаты',t:'Сын — первый выпускник, поступил на грант, теперь дочь учится. Программой и знаниями довольны.'},
+ {b:'auezov',s:'pos',th:'Ивенты',t:'Отличный опыт на MUN-дебатах: всё организовано, улучшил навыки выступлений.'},
+ {b:'auezov',s:'neg',th:'Качество/цена',t:'Обещали особый подход — по факту как в обычной школе. Не стоит этих денег.'},
+ {b:'auezov',s:'neg',th:'Преподаватели',t:'Учителя без опыта, кураторы пишут «акты» без причины, английский оценивают несправедливо.'},
+ {b:'alatau',s:'pos',th:'Преподаватели',t:'Очень высокий уровень: Нұрсәуле, Жанайым, Тоғжан, Әтипа. Каждому ученику уделяют внимание.'},
+ {b:'alatau',s:'pos',th:'Атмосфера',t:'Самая лучшая школа, рада что перевелись — хорошо учат и люди добрые.'},
+ {b:'alatau',s:'neu',th:'Телефоны',t:'Сбор телефонов поддерживаю — иначе дети сидят в соцсетях. Но за форму хотелось бы разрешить джинсы.'},
+ {b:'alatau',s:'neg',th:'Дисциплина',t:'Запрещают всё, руководство постоянно меняется. Забирают телефоны, мало рабочих туалетов.'},
+ {b:'alatau',s:'neg',th:'Качество/цена',t:'Учителя молодые, тесты слабые. За эти деньги лучше гос. школа + репетитор.'},
+ {b:'medeu',s:'pos',th:'Преподаватели',t:'Учителя хорошо объясняют, особенно по физике. Кабинеты тёплые, столовая вкусная.'},
+ {b:'medeu',s:'neg',th:'Буллинг',t:'Учителя обсуждали успеваемость ребёнка с другими родителями. Забрала документы через 5 месяцев — у ребёнка стресс.'},
+ {b:'medeu',s:'neg',th:'Буллинг',t:'Буллинг со стороны учителей. Жаловались куратору и завучам — ничего не изменилось.'},
+ {b:'medeu',s:'neg',th:'Инфраструктура',t:'Часто нет воды и пропадает электричество — недопустимо для частной школы.'},
+ {b:'medeu',s:'neu',th:'Форма',t:'По документам обещали свободную форму, теперь угрожают наказаниями за её отсутствие.'},
+ {b:'shym',s:'neg',th:'Цена',t:'Стоимость выросла примерно на 130%. Обещанные направления так и не появились.'},
+ {b:'shym',s:'neg',th:'Качество/контроль',t:'Завучи и часть учителей равнодушны. Воруют вещи, дерутся — администрации всё равно.'},
+ {b:'shym',s:'neg',th:'Списывание',t:'На пробных ЕНТ массово списывают и несправедливо получают гранты. Нужен контроль, камеры.'},
+ {b:'shym',s:'pos',th:'Атмосфера',t:'Тёплая атмосфера и квалифицированные специалисты. Учиться здесь — большая возможность.'},
+ {b:'shym',s:'neu',th:'Столовая',t:'Школа хорошая, учителя классные, но столовая дороговата и буллинг встречается.'},
+ {b:'aktau',s:'pos',th:'Преподаватели',t:'Ақмаржан Айдарқызы (история) подняла мой уровень с 3–4 до 40+ баллов, поступил(а) на грант.'},
+ {b:'aktau',s:'pos',th:'Программа',t:'PBL-проекты: дети сами ищут материалы, ездят в лабораторию. Реальная вовлечённость.'},
+ {b:'aktau',s:'pos',th:'Результаты',t:'Двое детей учились, старший на грант поступил. Директор не даёт лишних обещаний — что планирует, делает.'},
+ {b:'aktau',s:'neg',th:'Инфраструктура',t:'Ремонт не доделан: потолки, двери, холодная вода, зимой холодно. Видели тараканов.'},
+ {b:'aktau',s:'neg',th:'Текучка/цена',t:'Каждую четверть менялся учитель по ключевому предмету — ударило по подготовке к ЕНТ.'},
+ {b:'aktobe',s:'pos',th:'Преподаватели',t:'География с Қаламқас Маратовной — с нуля за год системно. Куратор Ақиба Болатқызы — на высоте.'},
+ {b:'aktobe',s:'pos',th:'Атмосфера',t:'Лучшая школа, привык за месяц, еда вкусная, кураторы на одной волне с учениками.'},
+ {b:'aktobe',s:'neg',th:'Обещания/форма',t:'Обещали кружки и завершить к 1 сентября — ничего нет. Форму обещали в сентябре, сейчас май — нет.'},
+ {b:'aktobe',s:'neg',th:'Текучка',t:'Школа новая, в 1 четверти многого не хватало, учителей меняли. Сейчас стабилизировалось.'},
+ {b:'aktobe',s:'neu',th:'Качество/цена',t:'Внутри красиво, но качество знаний слабое — деньги уходят впустую.'},
+ {b:'atyrau',s:'pos',th:'Преподаватели',t:'Математика с Шырайлым и Нұрай апай — отличный результат у ребёнка. Спасибо!'},
+ {b:'atyrau',s:'pos',th:'Атмосфера',t:'Школа небольшая, но качественно учат. Ежедневная связь с родителями. Приведём и второго ребёнка.'},
+ {b:'atyrau',s:'neg',th:'Инфраструктура/цена',t:'Всё поломано, кабинетов не хватает. В медпункте никогда нет даже парацетамола, еда дорогая.'},
+ {b:'atyrau',s:'neg',th:'Дисциплина',t:'Строгий контроль, телефоны не дают (даже для Kaspi QR), в туалет только на 5-минутной перемене.'},
+ {b:'atyrau',s:'neu',th:'Качество',t:'Часть учителей объясняет хорошо, часть — фокус на дисциплине, а не на знаниях.'},
+];
+const ANALYSIS={
+ mega:{strong:['Сильные кураторы и завуч (Мейіржан ағай)','Поступления в вузы, гранты','Живые ивенты'],weak:['Смена руководства уронила доверие','Уход сильных учителей','Запущенное здание'],rec:[['crit','Стабилизировать состав учителей по профильным предметам и закрыть «провисшие» профили (хим-био)'],['imp','Косметический ремонт и контроль санузлов'],['nice','Прозрачность в коммуникации о смене руководства']]},
+ auezov:{strong:['Science-классы на английском','Первые выпускники-грантники','MUN, дебаты'],weak:['Сомнения «особый подход vs цена»','Молодые кураторы и «акты»'],rec:[['imp','Показать, чем «особый подход» отличается от гос. школы — кейсы, цифры'],['nice','Обучить кураторов работе с «актами» без перегибов']]},
+ alatau:{strong:['Хвалят поимённо много учителей','«Добрая» атмосфера'],weak:['Текучка руководства','Жалобы на туалеты','Споры о форме/телефонах'],rec:[['imp','Привести в порядок санузлы (повторяющаяся жалоба)'],['imp','Зафиксировать политику формы/телефонов один раз и публично'],['nice','Снизить ощущение «постоянной смены руководства»']]},
+ medeu:{strong:['Есть сильные предметники (физика, математика)','Тёплые кабинеты'],weak:['КРИТИЧНО: жалобы на буллинг со стороны учителей','Нарушение приватности','Отключения воды/электричества','Отток учеников'],rec:[['crit','Срочно разобрать жалобы на буллинг и разглашение оценок третьим лицам — репутационный и правовой риск'],['crit','Решить перебои с водой/электричеством'],['imp','Exit-интервью: выяснять причину ухода ученика']]},
+ shym:{strong:['Самая большая база отзывов в сети','Тёплая атмосфера, сильные предметники'],weak:['Резкий рост цены','Списывание на пробных ЕНТ','Дорогая столовая, жара','Жалобы на конкретного завуча'],rec:[['crit','Навести честность на пробных ЕНТ (камеры, дежурные) — иначе теряется доверие к грантам'],['imp','Объяснить рост цены ценностью; пересмотреть платность курсов'],['imp','Кондиционеры, ремонт санузлов']]},
+ aktau:{strong:['Лучший рейтинг сети (4.8)','Звёздные педагоги (Ақмаржан Айдарқызы)','PBL и проекты','Грантники'],weak:['Недоделанный ремонт','Холод зимой, старая мебель','Текучка по ключевому предмету'],rec:[['imp','Завершить ремонт и отопление — диссонанс с сильным преподаванием'],['imp','Удержать ключевых предметников в течение года'],['nice','Обновить мебель и буфет']]},
+ aktobe:{strong:['Много благодарностей кураторам','Стабилизация после старта'],weak:['Невыполненные обещания (кружки, форма, учебники)','Текучка на старте'],rec:[['crit','Закрыть долги по обещаниям: форма, учебники, кружки (IELTS, робототехника, дебаты)'],['imp','Дать спортзалам инвентарь'],['nice','Не перемешивать классы без необходимости']]},
+ atyrau:{strong:['Сильная математика (Шырайлым, Нұрай)','Маленькая «семейная» школа','Связь с родителями'],weak:['Маленькое помещение','Пустой медпункт','Дорогая столовая, жёсткая дисциплина'],rec:[['imp','Укомплектовать медпункт базовыми средствами'],['imp','Смягчить режим: туалет/телефон для Kaspi QR'],['nice','Пересмотреть цены буфета']]},
+};
+const TEMPLATES=[
+ ['Жалоба на учителя / буллинг','Здравствуйте! Спасибо, что доверились нам — нам важно то, что вы описали. Мы уже передали ситуацию руководителю учебной части и куратору и в течение 2 рабочих дней свяжемся с вами лично. Напишите нам в WhatsApp +7 771 123 07 02 — разберёмся предметно.'],
+ ['Недовольство результатами / ЕНТ','Здравствуйте! Понимаем ваше беспокойство о результатах. Давайте посмотрим динамику ребёнка вместе: куратор подготовит выписку по пробным тестам и план до ЕНТ. Предложим конкретные шаги, а не общие слова.'],
+ ['Вопрос по оплате / росту цены','Здравствуйте! Спасибо за прямой вопрос. Изменение стоимости — чувствительная тема. Расскажем, что входит в сумму и какие направления доступны без доплаты. Давайте созвонимся — так честнее, чем в переписке.'],
+ ['Форма / телефоны / дисциплина','Здравствуйте! Правила по форме и телефонам мы вводили ради учёбы и безопасности, но видим, что логика была не всем понятна. Зафиксируем правила письменно и опубликуем, чтобы не было разночтений в течение года.'],
+ ['Инфраструктура (вода, туалеты, ремонт)','Здравствуйте! Спасибо, что сообщили — это то, что мы можем и должны исправить. Передали хозяйственной службе. Напишите, пожалуйста, филиал и кабинет, чтобы устранить точечно и быстро.'],
+];
+const TREND={labels:['Сен','Окт','Ноя','Дек','Янв','Фев','Мар','Апр','Май'],vol:[34,46,58,71,118,84,79,132,96]};
+
+/* ===================== РАСЧЁТЫ ===================== */
+let totalVotes=BR.reduce((a,b)=>a+b.votes,0), totalRev=BR.reduce((a,b)=>a+b.rev,0);
+let wAvg=BR.reduce((a,b)=>a+b.r*b.votes,0)/totalVotes;
+let above=BR.filter(b=>b.r>=4.5).length;
+let SENT_NET={pos:75,neu:7,neg:18};
+let NPS_NET=Math.round(61-(13+5+7)); // 5★ − (1..3★) по оценке
+const stars=r=>'★★★★★'.slice(0,Math.round(r))+'☆☆☆☆☆'.slice(0,5-Math.round(r));
+const rc=r=>r<4.2?'var(--neg)':r<4.55?'var(--neu)':'var(--pos)';
+
+/* состояние */
+let cur='all';      // 'all' | branch id
+let tab='ob';
+
+const curBr=()=>cur=='all'?null:BR.find(b=>b.id==cur);
+const scSent=()=>{const b=curBr();return b?b.sent:SENT_NET;};
+const scPraise=()=>{const b=curBr();return b?b.praise:PRAISE_NET;};
+const scProb=()=>{const b=curBr();return b?b.prob:PROBLEMS_NET.map(p=>[p[0],p[1],p[2]]);};
+const scRevs=()=>{const b=curBr();return b?REVS.filter(r=>r.b==b.id):REVS;};
+
+/* ===================== CANVAS ===================== */
+const cv=n=>getComputedStyle(document.body).getPropertyValue(n).trim();
+const charts={};
+const reg=(id,fn)=>charts[id]=fn;
+function draw(id){const c=document.getElementById(id);if(!c||!charts[id])return;const w=c.clientWidth;if(!w)return;
+  const dpr=window.devicePixelRatio||1;c.width=w*dpr;c.height=c.clientHeight*dpr;
+  const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,c.clientHeight);charts[id](x,w,c.clientHeight);}
+function drawVisible(){document.querySelectorAll('.view.active canvas').forEach(c=>draw(c.id));}
+function donut(x,w,h,segs,center){const cx=w/2,cy=h/2,R=Math.min(w,h)/2-6,th=Math.max(20,R*.34);
+  let a=-Math.PI/2;const tot=segs.reduce((s,v)=>s+v.v,0);x.lineCap='butt';
+  segs.forEach(s=>{const ang=s.v/tot*Math.PI*2;x.beginPath();x.lineWidth=th;x.strokeStyle=s.c;x.arc(cx,cy,R-th/2,a+.012,a+ang-.012);x.stroke();a+=ang;});
+  x.textAlign='center';x.fillStyle=cv('--ink');x.font='800 30px ui-sans-serif';x.fillText(center.big,cx,cy-1);
+  x.fillStyle=cv('--muted');x.font='600 12px ui-sans-serif';x.fillText(center.sm,cx,cy+17);}
+function hbars(x,w,h,items,max){const pad=8,gap=10,n=items.length,bh=(h-pad*2-gap*(n-1))/n,lw=Math.min(190,w*.36);
+  items.forEach((it,i)=>{const y=pad+i*(bh+gap);x.fillStyle=cv('--ink');x.font='600 12.5px ui-sans-serif';x.textAlign='left';x.textBaseline='middle';x.fillText(it.l,0,y+bh/2);
+    const bx=lw,bw=w-lw-44,val=it.v/max*bw;x.fillStyle=cv('--line');rr(x,bx,y+bh/2-5,bw,10,5);x.fill();
+    x.fillStyle=it.c;rr(x,bx,y+bh/2-5,Math.max(6,val),10,5);x.fill();
+    x.fillStyle=cv('--muted');x.textAlign='right';x.font='600 12px ui-sans-serif';x.fillText(it.t,w,y+bh/2);});}
+function line(x,w,h,labels,data,col){const padL=30,padR=12,padT=14,padB=24,gw=w-padL-padR,gh=h-padT-padB,mx=Math.max(...data)*1.1;
+  x.strokeStyle=cv('--line');x.lineWidth=1;x.fillStyle=cv('--muted');x.font='10px ui-sans-serif';x.textAlign='right';x.textBaseline='middle';
+  for(let i=0;i<=3;i++){const gy=padT+gh*i/3;x.beginPath();x.moveTo(padL,gy);x.lineTo(w-padR,gy);x.stroke();x.fillText(Math.round(mx*(1-i/3)),padL-6,gy);}
+  const px=i=>padL+gw*i/(labels.length-1),py=v=>padT+gh*(1-v/mx);
+  const g=x.createLinearGradient(0,padT,0,padT+gh);g.addColorStop(0,col+'55');g.addColorStop(1,col+'00');
+  x.beginPath();x.moveTo(px(0),py(data[0]));data.forEach((v,i)=>x.lineTo(px(i),py(v)));x.lineTo(px(labels.length-1),padT+gh);x.lineTo(px(0),padT+gh);x.closePath();x.fillStyle=g;x.fill();
+  x.beginPath();x.moveTo(px(0),py(data[0]));data.forEach((v,i)=>x.lineTo(px(i),py(v)));x.strokeStyle=col;x.lineWidth=2.4;x.lineJoin='round';x.stroke();
+  data.forEach((v,i)=>{x.beginPath();x.arc(px(i),py(v),3,0,7);x.fillStyle=col;x.fill();x.fillStyle=cv('--muted');x.font='10px ui-sans-serif';x.textAlign='center';x.textBaseline='top';x.fillText(labels[i],px(i),padT+gh+6);});}
+function rr(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();}
+
+reg('cSent',(x,w,h)=>{const s=scSent();donut(x,w,h,[{v:s.pos,c:cv('--pos')},{v:s.neu,c:cv('--neu')},{v:s.neg,c:cv('--neg')}],{big:s.pos+'%',sm:'позитив'});});
+reg('cTrend',(x,w,h)=>line(x,w,h,TREND.labels,TREND.vol,cv('--brand')));
+reg('cBranch',(x,w,h)=>hbars(x,w,h,[...BR].sort((a,b)=>b.r-a.r).map(b=>({l:b.nm.replace('JOO ',''),v:b.r,t:b.r.toFixed(1),c:cv(rc(b.r).slice(4,-1))})),5));
+reg('cThemeP',(x,w,h)=>{const d=scPraise(),mx=Math.max(...d.map(p=>p[1]),1);hbars(x,w,h,d.map(p=>({l:p[0],v:p[1],t:p[1]+'%',c:cv('--pos')})),mx);});
+reg('cThemeN',(x,w,h)=>{const d=scProb(),mx=Math.max(...d.map(p=>p[1]),1);hbars(x,w,h,d.map(p=>({l:p[0],v:p[1],t:String(p[1]),c:p[2]=='neg'?cv('--neg'):cv('--neu')})),mx);});
+
+/* ===================== UI КАРКАС ===================== */
+const TABS=[['ob','Обзор','📊'],['praise','Что хвалят','💚'],['prob','Проблемы','🚩'],['branch','Филиалы','🏫'],['rev','Отзывы','💬'],['todo','Что делать','🛠'],['deep','Анализ','🔍']];
+const nav=document.getElementById('nav');
+nav.innerHTML=TABS.map(t=>`<button class="tab" data-t="${t[0]}">${t[2]} ${t[1]}</button>`).join('');
+const scopebar=document.getElementById('scopebar');
+scopebar.innerHTML=`<span class="slab">Филиал:</span><select id="scopeSel" class="scopesel">`+
+  `<option value="all">🌐 Вся сеть</option>`+
+  BR.map(b=>`<option value="${b.id}">${b.nm}</option>`).join('')+
+  `</select>`;
+const main=document.getElementById('main');
+const cloudHTML=(arr,col)=>{const mx=Math.max(...arr.map(a=>a[1]));return `<div class="cloud">${arr.map(([w,v])=>`<span style="font-size:${(13+v/mx*20).toFixed(0)}px;color:${col};opacity:${(.55+v/mx*.45).toFixed(2)}">${w}</span>`).join('')}</div>`;};
+
+/* ===================== РЕНДЕР (зависит от scope) ===================== */
+function scopeHead(){const b=curBr();
+  return b?`<div class="scopehead"><span class="tag">🏫 ${b.nm}</span><span class="mini">${b.city}, ${b.dist} · ${b.addr}</span></div>`
+          :`<div class="scopehead"><span class="tag">🌐 Вся сеть · 8 филиалов</span></div>`;}
+
+function kpiRow(){const b=curBr();
+  if(!b)return `<div class="grid kpis">
+    <div class="card kpi"><div class="lab">Средний рейтинг</div><div class="big" style="color:${rc(wAvg)}">${wAvg.toFixed(2)}</div><div class="sub stars" style="color:var(--neu)">${stars(wAvg)}</div></div>
+    <div class="card kpi"><div class="lab">Всего оценок</div><div class="big">${totalVotes.toLocaleString('ru')}</div><div class="sub">≈ ${totalRev.toLocaleString('ru')} отзывов</div></div>
+    <div class="card kpi"><div class="lab">Филиалов ≥ 4.5★</div><div class="big">${above}<span style="font-size:20px;color:var(--muted)">/8</span></div><div class="sub">${8-above} требуют внимания</div></div>
+    <div class="card kpi"><div class="lab">NPS (оценка)</div><div class="big" style="color:${NPS_NET>40?'var(--pos)':NPS_NET>0?'var(--neu)':'var(--neg)'}">+${NPS_NET}</div><div class="sub">промоутеры − критики</div></div></div>`;
+  const rank=[...BR].sort((a,b)=>b.r-a.r).findIndex(x=>x.id==b.id)+1;
+  return `<div class="grid kpis">
+    <div class="card kpi"><div class="lab">Рейтинг</div><div class="big" style="color:${rc(b.r)}">${b.r.toFixed(1)}</div><div class="sub stars" style="color:var(--neu)">${stars(b.r)}</div></div>
+    <div class="card kpi"><div class="lab">Оценок</div><div class="big">${b.votes.toLocaleString('ru')}</div><div class="sub">${b.rev} текстовых отзывов</div></div>
+    <div class="card kpi"><div class="lab">Позитив (оценка)</div><div class="big" style="color:var(--pos)">${b.sent.pos}%</div><div class="sub">негатив ${b.sent.neg}%</div></div>
+    <div class="card kpi"><div class="lab">Место в сети</div><div class="big">${rank}<span style="font-size:20px;color:var(--muted)">/8</span></div><div class="sub">${rank<=2?'один из лучших':rank>=7?'требует внимания':'в середине'}</div></div></div>`;}
+
+function obView(){const b=curBr();const s=scSent();
+  const right=`<div class="card"><h2 class="sec" style="margin-top:0">Сентимент (оценка)</h2><canvas id="cSent" style="height:200px"></canvas>
+    <div class="legend"><span><i style="background:var(--pos)"></i>Позитив ${s.pos}%</span><span><i style="background:var(--neu)"></i>Нейтрал ${s.neu}%</span><span><i style="background:var(--neg)"></i>Негатив ${s.neg}%</span></div></div>`;
+  if(!b){const sorted=[...BR].sort((a,b)=>b.r-a.r),top3=sorted.slice(0,3),bot3=[...sorted].reverse().slice(0,3);
+    return scopeHead()+`<p class="lead">Сводка по всей сети. Выбери филиал в строке выше, чтобы увидеть отдельный отчёт по нему. Рейтинги и число оценок — фактические с 2ГИС; сентимент, NPS и тренд — оценочные по выборке.</p>
+      ${kpiRow()}
+      <div class="grid c21" style="margin-top:16px">
+        <div class="card"><h2 class="sec" style="margin-top:0">Динамика отзывов · сен 2025 – май 2026</h2><canvas id="cTrend" style="height:230px"></canvas><p class="note">Иллюстративно по выборке: пики — сезон ЕНТ (январь) и весенний набор (апрель).</p></div>
+        ${right}</div>
+      <div class="grid c21" style="margin-top:16px">
+        <div class="card"><h2 class="sec" style="margin-top:0">Рейтинг по филиалам</h2><canvas id="cBranch" style="height:260px"></canvas></div>
+        <div class="card"><h2 class="sec" style="margin-top:0">🏅 Топ-3 / ⚠️ Внимание</h2>
+          ${top3.map(b=>`<div class="bch"><span class="dot" style="background:var(--pos)"></span><span class="nm">${b.nm}</span><span class="mini">${b.r.toFixed(1)}★ · ${b.city}</span></div>`).join('')}<div style="height:10px"></div>
+          ${bot3.map(b=>`<div class="bch"><span class="dot" style="background:${rc(b.r)}"></span><span class="nm">${b.nm}</span><span class="mini">${b.r.toFixed(1)}★ · ${b.city}</span></div>`).join('')}</div></div>`;}
+  // branch overview
+  return scopeHead()+`<p class="lead">Отдельный отчёт по филиалу <b>${b.nm}</b> (${b.city}). Ниже — его рейтинг, сентимент, что хвалят и что критикуют именно в этом филиале.</p>
+    ${kpiRow()}
+    <div class="grid c21" style="margin-top:16px">
+      <div class="card"><h2 class="sec" style="margin-top:0">Что хвалят в этом филиале</h2><canvas id="cThemeP" style="height:200px"></canvas></div>
+      ${right}</div>
+    <div class="card" style="margin-top:16px"><h2 class="sec" style="margin-top:0">Проблемные темы филиала</h2><canvas id="cThemeN" style="height:${Math.max(160,b.prob.length*44)}px"></canvas></div>`;}
+
+function praiseView(){const b=curBr();const d=scPraise();const q=scRevs().filter(r=>r.s=='pos').slice(0,6);
+  return scopeHead()+`<p class="lead">${b?`Что ценят в филиале <b>${b.nm}</b>.`:'Что ценят по всей сети.'} Главный актив — конкретные учителя и кураторы.</p>
+    <div class="card"><h2 class="sec" style="margin-top:0">Темы похвалы ${b?'(доля, оценка)':'(% отзывов, оценка)'}</h2><canvas id="cThemeP" style="height:${Math.max(180,d.length*44)}px"></canvas></div>
+    <div class="card" style="margin-top:16px"><h2 class="sec" style="margin-top:0">Облако позитивных слов</h2>${cloudHTML(KW_POS,'var(--pos)')}</div>
+    <h2 class="sec">Голос клиентов${b?' · '+b.nm:''}</h2>
+    ${q.length?q.map(r=>`<div class="quote">«${r.t}»<div class="meta"><span class="pill p-pos">${r.th}</span> · ${NM[r.b]}</div></div>`).join(''):'<p class="mini">Нет позитивных отзывов в выборке этого филиала.</p>'}`;}
+
+function probView(){const b=curBr();const d=scProb();const q=scRevs().filter(r=>r.s=='neg').slice(0,7);
+  const flag=(!b||b.id=='medeu')?`<div class="card" style="border-color:color-mix(in srgb,var(--neg) 40%,var(--line))">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:4px"><span class="prio crit">Срочно</span><b style="font-size:14px">Буллинг и нарушение приватности${b?'':' — преимущественно JOO Medeu'}</b></div>
+    <p style="margin:6px 0 0;font-size:14px">Родители пишут об обсуждении оценок ребёнка с посторонними, унижениях и оттоке учеников. Репутационный и правовой риск (закон «О статусе педагога»). Нужен отдельный разбор, а не шаблонный ответ.</p></div>`:'';
+  return scopeHead()+`<p class="lead">${b?`Жалобы по филиалу <b>${b.nm}</b> по темам.`:'Классификация негатива по сети.'} Красным — то, что бьёт по доверию; жёлтым — спорные темы.</p>
+    ${flag}
+    <div class="card" style="margin-top:${flag?'16px':'0'}"><h2 class="sec" style="margin-top:0">Темы проблем (упоминания/доля, оценка)</h2><canvas id="cThemeN" style="height:${Math.max(180,d.length*44)}px"></canvas></div>
+    <div class="card" style="margin-top:16px"><h2 class="sec" style="margin-top:0">Облако негативных слов</h2>${cloudHTML(KW_NEG,'var(--neg)')}</div>
+    <h2 class="sec">Жалобы дословно${b?' · '+b.nm:''}</h2>
+    ${q.length?q.map(r=>`<div class="quote" style="border-color:var(--neg)">«${r.t}»<div class="meta"><span class="pill p-neg">${r.th}</span> · ${NM[r.b]}</div></div>`).join(''):'<p class="mini">Нет негативных отзывов в выборке этого филиала.</p>'}`;}
+
+let sortKey='r',sortDir=-1;
+function branchTable(){const rows=[...BR].sort((a,b)=>(a[sortKey]>b[sortKey]?1:-1)*sortDir);
+  return `<table id="btab"><thead><tr><th data-k="nm">Филиал</th><th data-k="city">Город</th><th class="num" data-k="r">Рейтинг</th><th class="num" data-k="votes">Оценок</th><th class="num" data-k="rev">Отзывов</th><th>Статус</th></tr></thead><tbody>
+  ${rows.map(b=>`<tr class="click" data-go="${b.id}"><td><b>${b.nm}</b><div class="mini">${b.dist} · ${b.addr}</div></td><td>${b.city}</td>
+   <td class="num"><span class="dot" style="background:${rc(b.r)}"></span>${b.r.toFixed(1)}</td><td class="num">${b.votes}</td><td class="num">${b.rev}</td>
+   <td>${b.r>=4.7?'<span class="pill p-pos">отличный</span>':b.r>=4.5?'<span class="pill p-info">хороший</span>':b.r>=4.3?'<span class="pill p-neu">средний</span>':'<span class="pill p-neg">риск</span>'}</td></tr>`).join('')}</tbody></table>`;}
+function branchView(){return `<p class="lead">Все филиалы рядом — клик по заголовку столбца сортирует, клик по строке открывает отдельный отчёт по филиалу.</p><div class="card" id="branchCard">${branchTable()}</div>`;}
+
+function revView(){const b=curBr();
+  return scopeHead()+`<p class="lead">${b?`Отзывы филиала <b>${b.nm}</b>.`:'Все отзывы сети.'} Поиск и фильтры. Тексты приведены с 2ГИС в сокращении.</p>
+  <div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <input id="q" placeholder="🔎 поиск по тексту…" style="flex:1;min-width:200px">
+    <select id="fb"><option value="">Все филиалы</option>${BR.map(x=>`<option value="${x.id}" ${b&&b.id==x.id?'selected':''}>${x.nm}</option>`).join('')}</select>
+    <select id="fs"><option value="">Любая тональность</option><option value="pos">Позитив</option><option value="neu">Нейтрал</option><option value="neg">Негатив</option></select>
+  </div><div id="revList" style="margin-top:8px"></div><div class="pg" id="revPg"></div></div>`;}
+
+function todoView(){const b=curBr();const order={crit:0,imp:1,nice:2};let all=[];
+  const list=b?[b]:BR;
+  for(const x of list){(ANALYSIS[x.id].rec||[]).forEach(([p,t])=>all.push({p,t,b:x.nm}));}
+  all.sort((a,b)=>order[a.p]-order[b.p]);
+  return scopeHead()+`<p class="lead">${b?`План действий по филиалу <b>${b.nm}</b>.`:'Приоритизированный план по всей сети.'} Сначала риски, затем улучшения. Ниже — шаблоны ответов.</p>
+    <h2 class="sec">План действий по приоритету</h2>
+    ${all.map(r=>`<div class="card" style="padding:14px 16px;margin:10px 0;display:flex;gap:12px;align-items:flex-start"><span class="prio ${r.p}">${r.p=='crit'?'Критично':r.p=='imp'?'Важно':'Желательно'}</span><div><div style="font-size:14.5px">${r.t}</div><div class="mini" style="margin-top:4px">${r.b}</div></div></div>`).join('')}
+    <h2 class="sec">Шаблоны ответов на типичные жалобы</h2>
+    ${TEMPLATES.map(([t,bd])=>`<div class="tmpl"><b>${t}</b><p style="margin:8px 0 0">${bd}</p></div>`).join('')}
+    <p class="note">Для жалоб на буллинг шаблон не используется — только индивидуальный разбор.</p>`;}
+
+function deepView(){const b=curBr();const list=b?[b]:[...BR].sort((a,b)=>b.r-a.r);
+  return scopeHead()+`<p class="lead">${b?'Детальный разбор филиала.':'Детальный разбор каждого филиала.'} Сильные и слабые стороны и персональные рекомендации.</p>
+  ${list.map(b=>{const a=ANALYSIS[b.id];return `<div class="card" style="margin:14px 0">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div><div style="font-size:18px;font-weight:800">${b.nm} ${b.r>=4.7?'<span class="ribbon">лидер</span>':b.r<4.2?'<span class="ribbon" style="color:var(--neg);background:color-mix(in srgb,var(--neg) 14%,transparent)">риск</span>':''}</div>
+        <div class="mini">${b.city}, ${b.dist} · ${b.addr}</div></div>
+      <div style="text-align:right"><div style="font-size:26px;font-weight:800;color:${rc(b.r)}">${b.r.toFixed(1)}★</div><div class="mini">${b.votes} оценок · ${b.rev} отзывов · позитив ${b.sent.pos}%</div></div></div>
+    <div class="split" style="margin-top:14px">
+      <div><div class="mini" style="font-weight:700;color:var(--pos);margin-bottom:6px">СИЛЬНЫЕ СТОРОНЫ</div>${a.strong.map(s=>`<div style="font-size:14px;margin:5px 0">✓ ${s}</div>`).join('')}</div>
+      <div><div class="mini" style="font-weight:700;color:var(--neg);margin-bottom:6px">СЛАБЫЕ СТОРОНЫ</div>${a.weak.map(s=>`<div style="font-size:14px;margin:5px 0">• ${s}</div>`).join('')}</div></div>
+    <div style="margin-top:12px"><div class="mini" style="font-weight:700;margin-bottom:6px">РЕКОМЕНДАЦИИ</div>
+      ${a.rec.map(([p,t])=>`<div style="display:flex;gap:10px;align-items:flex-start;margin:6px 0"><span class="prio ${p}">${p=='crit'?'Крит':p=='imp'?'Важно':'Желат'}</span><span style="font-size:14px">${t}</span></div>`).join('')}</div></div>`}).join('')}`;}
+
+const BUILD={ob:obView,praise:praiseView,prob:probView,branch:branchView,rev:revView,todo:todoView,deep:deepView};
+
+function render(){
+  main.innerHTML=TABS.map(t=>`<section class="view${t[0]==tab?' active':''}" id="v-${t[0]}">${BUILD[t[0]]()}</section>`).join('')+
+    `<div class="foot">Дашборд построен Claude по данным 2ГИС · сеть JOO School (8 филиалов) · 28 мая 2026.<br>Рейтинги и число оценок — фактические с 2ГИС. Сентимент, распределение, NPS, тренд и тематические доли — оценочные по выборке прочитанных отзывов.<br>Аналитический инструмент для внутреннего пользования, не официальная статистика 2ГИС.</div>`;
+  // подсветка табов и scope
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.t==tab));
+  const sel=document.getElementById('scopeSel');if(sel)sel.value=cur;
+  renderRevs();
+  requestAnimationFrame(drawVisible);
+}
+
+/* отзывы */
+let revPage=0;const PER=8;
+function renderRevs(){const ql=document.getElementById('q');if(!ql)return;
+  const q=(ql.value||'').toLowerCase(),fb=document.getElementById('fb').value,fs=document.getElementById('fs').value;
+  let list=REVS.filter(r=>(!fb||r.b==fb)&&(!fs||r.s==fs)&&(!q||r.t.toLowerCase().includes(q)||r.th.toLowerCase().includes(q)));
+  const pages=Math.max(1,Math.ceil(list.length/PER));if(revPage>=pages)revPage=0;
+  const slice=list.slice(revPage*PER,revPage*PER+PER),pc={pos:'p-pos',neu:'p-neu',neg:'p-neg'},pt={pos:'позитив',neu:'нейтрал',neg:'негатив'};
+  document.getElementById('revList').innerHTML=slice.length?slice.map(r=>`<div class="rev"><div class="h"><span class="pill ${pc[r.s]}">${pt[r.s]}</span><span class="mini">${NM[r.b]}</span></div><div class="t">«${r.t}»</div><div class="m"><span>📂 ${r.th}</span><span>📍 ${BR.find(b=>b.id==r.b).city}</span></div></div>`).join(''):`<p class="mini" style="padding:20px 0;text-align:center">Ничего не найдено — измените фильтры.</p>`;
+  document.getElementById('revPg').innerHTML=pages>1?Array.from({length:pages},(_,i)=>`<button class="${i==revPage?'active':''}" data-p="${i}">${i+1}</button>`).join(''):'';}
+
+/* ===================== СОБЫТИЯ ===================== */
+nav.addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;tab=b.dataset.t;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t==b));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id=='v-'+tab));
+  window.scrollTo({top:0,behavior:'smooth'});requestAnimationFrame(drawVisible);});
+
+scopebar.addEventListener('change',e=>{if(e.target.id!=='scopeSel')return;cur=e.target.value;revPage=0;render();window.scrollTo({top:0,behavior:'smooth'});});
+
+const tb=document.getElementById('themeBtn');
+tb.addEventListener('click',()=>{const l=document.documentElement.getAttribute('data-theme')=='light';
+  document.documentElement.setAttribute('data-theme',l?'dark':'light');tb.textContent=l?'☀️ Светлая':'🌙 Тёмная';requestAnimationFrame(drawVisible);});
+
+main.addEventListener('input',e=>{if(['q','fb','fs'].includes(e.target.id)){revPage=0;renderRevs();}});
+main.addEventListener('change',e=>{if(['fb','fs'].includes(e.target.id)){revPage=0;renderRevs();}});
+main.addEventListener('click',e=>{
+  const pg=e.target.closest('#revPg button');if(pg){revPage=+pg.dataset.p;renderRevs();return;}
+  const th=e.target.closest('#branchCard th');if(th){const k=th.dataset.k;if(sortKey==k)sortDir*=-1;else{sortKey=k;sortDir=(k=='nm'||k=='city')?1:-1;}document.getElementById('branchCard').innerHTML=branchTable();return;}
+  const tr=e.target.closest('tr.click');if(tr){cur=tr.dataset.go;tab='ob';revPage=0;render();window.scrollTo({top:0,behavior:'smooth'});}
+});
+let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(drawVisible,150);});
+
+function recompute(){
+  NM=Object.fromEntries(BR.map(b=>[b.id,b.nm]));
+  totalVotes=BR.reduce((a,b)=>a+b.votes,0);
+  totalRev=BR.reduce((a,b)=>a+b.rev,0);
+  wAvg=BR.reduce((a,b)=>a+b.r*b.votes,0)/totalVotes;
+  above=BR.filter(b=>b.r>=4.5).length;
+}
+/* Пробуем подгрузить свежие данные из data.json рядом с дашбордом.
+   Нет файла / открыто как локальный файл → остаются встроенные данные. */
+async function loadData(){
+  try{
+    const res=await fetch('data.json?ts='+Date.now(),{cache:'no-store'});
+    if(!res.ok) throw 0;
+    const d=await res.json();
+    if(Array.isArray(d.branches)&&d.branches.length){
+      const byId=Object.fromEntries(BR.map(b=>[b.id,b]));
+      BR=d.branches.map(b=>Object.assign({},byId[b.id]||{},b));
+    }
+    if(Array.isArray(d.revs)) REVS=d.revs;
+    if(Array.isArray(d.kw_pos)) KW_POS=d.kw_pos;
+    if(Array.isArray(d.kw_neg)) KW_NEG=d.kw_neg;
+    if(Array.isArray(d.praise_net)) PRAISE_NET=d.praise_net;
+    if(Array.isArray(d.problems_net)) PROBLEMS_NET=d.problems_net;
+    if(d.sent_net) SENT_NET=d.sent_net;
+    if(typeof d.nps_net==='number') NPS_NET=d.nps_net;
+    const el=document.getElementById('updatedAt');if(el&&d.collected_at)el.textContent='данные обновлены '+d.collected_at;
+  }catch(e){
+    const el=document.getElementById('updatedAt');if(el)el.textContent='встроенные данные · 28 мая 2026';
+  }
+  recompute();
+}
+(async function(){ await loadData(); render(); })();
+</script>
+</body>
+</html>
