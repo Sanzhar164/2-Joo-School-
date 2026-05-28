@@ -229,7 +229,8 @@ const MONTHS_RU=['янв','фев','мар','апр','май','июн','июл',
 const monLabel=ym=>{const [y,m]=ym.split('-');return MONTHS_RU[(+m)-1]+' '+y.slice(2);};
 const dayLabel=ymd=>{const p=ymd.split('-');return p[2]+'.'+p[1];};
 // состояние графика
-let trendYear='all', trendGran='month';
+let trendYear='all', trendGran='month', trendMode='net';
+let trendHidden={};
 const BRC={mega:'#36c5a8',auezov:'#5b9bf2',alatau:'#f5b945',medeu:'#f4576b',shym:'#a78bfa',aktau:'#34d399',aktobe:'#fb923c',atyrau:'#22d3ee'};
 const hasDaily=()=> (curBr()?[curBr()]:BR).some(x=>x.daily);
 function aggMonth(daily){const o={};for(const k in daily)o[k.slice(0,7)]=(o[k.slice(0,7)]||0)+daily[k];return o;}
@@ -237,7 +238,7 @@ function periodMap(x,gran){return gran==='day'?(x.daily||{}):(x.daily?aggMonth(x
 function availYears(){const set=new Set(),src=curBr()?[curBr()]:BR;
   src.forEach(x=>{const m=x.daily||x.monthly||{};for(const k in m)set.add(k.slice(0,4));});
   return [...set].sort();}
-// данные графика: один филиал = 1 линия; вся сеть = по линии на каждый филиал
+// данные графика
 function trendData(){
   const b=curBr();
   let gran=trendGran; if(gran==='day' && !hasDaily()) gran='month';
@@ -251,8 +252,13 @@ function trendData(){
   BR.forEach(x=>{const m=periodMap(x,gran);for(const k in m)if(inYear(k))set.add(k);});
   const keys=[...set].sort();
   if(!keys.length) return null;
+  const labels=keys.map(k=>gran==='day'?dayLabel(k):monLabel(k));
+  if(trendMode==='net'){
+    const data=keys.map(k=>BR.reduce((a,x)=>a+(periodMap(x,gran)[k]||0),0));
+    return {gran,multi:false,keys,labels,data};
+  }
   const series=BR.map(x=>{const m=periodMap(x,gran);return {id:x.id,nm:x.nm,color:BRC[x.id]||'#888',data:keys.map(k=>m[k]||0)};});
-  return {gran,multi:true,keys,labels:keys.map(k=>gran==='day'?dayLabel(k):monLabel(k)),series};
+  return {gran,multi:true,keys,labels,series};
 }
 
 /* ===================== РАСЧЁТЫ ===================== */
@@ -319,7 +325,7 @@ reg('cSent',(x,w,h)=>{const s=scSent();donut(x,w,h,[{v:s.pos,c:cv('--pos')},{v:s
 let trendPts=[], trendMulti=false;
 reg('cTrend',(x,w,h)=>{const t=trendData();
   if(!t){trendMulti=false;trendPts=[];line(x,w,h,TREND.labels,TREND.vol,cv('--brand'));return;}
-  if(t.multi){trendMulti=true;trendPts=multiLine(x,w,h,t.labels,t.series);}
+  if(t.multi){trendMulti=true;const vis=t.series.filter(s=>!trendHidden[s.id]);trendPts=vis.length?multiLine(x,w,h,t.labels,vis):(line(x,w,h,t.labels,t.labels.map(_=>0),cv('--brand')),[]);}
   else{trendMulti=false;trendPts=line(x,w,h,t.labels,t.data,cv('--brand'));}});
 reg('cBranch',(x,w,h)=>hbars(x,w,h,[...BR].sort((a,b)=>b.r-a.r).map(b=>({l:b.nm.replace('JOO ',''),v:b.r,t:b.r.toFixed(1),c:cv(rc(b.r).slice(4,-1))})),5));
 reg('cThemeP',(x,w,h)=>{const d=scPraise(),mx=Math.max(...d.map(p=>p[1]),1);hbars(x,w,h,d.map(p=>({l:p[0],v:p[1],t:p[1]+'%',c:cv('--pos')})),mx);});
@@ -385,14 +391,17 @@ function trendControls(){
   const dayOff=hasDaily()?'':' disabled title="нужно пересобрать данные новой кнопкой"';
   const gb=`<button class="yb${trendGran==='month'?' active':''}" data-tg="month">Месяцы</button>`+
     `<button class="yb${trendGran==='day'?' active':''}" data-tg="day"${dayOff}>Дни</button>`;
-  return `<div class="tctl">${yb}<span class="sep"></span>${gb}</div>`;}
+  const mb=!curBr()?`<span class="sep"></span><button class="yb${trendMode==='net'?' active':''}" data-tm="net">Сеть</button>`+
+    `<button class="yb${trendMode==='branches'?' active':''}" data-tm="branches">По филиалам</button>`:'';
+  return `<div class="tctl">${yb}<span class="sep"></span>${gb}${mb}</div>`;}
 function trendCard(title){
-  const legend = !curBr() ? `<div class="legend" style="margin-top:10px">`+BR.map(x=>`<span><i style="background:${BRC[x.id]}"></i>${x.nm.replace('JOO ','')}</span>`).join('')+`</div>` : '';
+  const legend = (!curBr() && trendMode==='branches')
+    ? `<div class="legend lg-click" style="margin-top:10px">`+BR.map(x=>`<span data-leg="${x.id}" style="cursor:pointer;${trendHidden[x.id]?'opacity:.32':''}"><i style="background:${BRC[x.id]}"></i>${x.nm.replace('JOO ','')}</span>`).join('')+`</div>` : '';
   return `<div class="card"><h2 class="sec" style="margin-top:0">${title}</h2>${trendControls()}
     <div class="chartwrap"><canvas id="cTrend" style="height:260px"></canvas><div class="tip" id="cTrendTip"></div></div>
     ${legend}${trendNote()}</div>`;}
 function trendNote(){const t=trendData();return t
-  ? `<p class="note">${t.multi?'Каждая линия — отдельный филиал. ':''}По реальным датам отзывов с 2ГИС. Наведи на график — покажет числа.</p>`
+  ? `<p class="note">${t.multi?'Каждая линия — филиал (клик по названию внизу — скрыть/показать). ':''}По реальным датам отзывов с 2ГИС. Наведи на график — покажет числа.</p>`
   : `<p class="note">Иллюстративно: реальные даты появятся после сбора новой версией кнопки.</p>`;}
 
 function praiseView(){const b=curBr();const d=scPraise();const q=scRevs().filter(r=>r.s=='pos').slice(0,6);
@@ -492,6 +501,8 @@ main.addEventListener('change',e=>{if(['fb','fs'].includes(e.target.id)){revPage
 main.addEventListener('click',e=>{
   const yb=e.target.closest('.yb[data-ty]');if(yb){trendYear=yb.dataset.ty;render();return;}
   const gb=e.target.closest('.yb[data-tg]');if(gb&&!gb.disabled){trendGran=gb.dataset.tg;render();return;}
+  const tm=e.target.closest('.yb[data-tm]');if(tm){trendMode=tm.dataset.tm;if(trendMode==='branches'&&trendYear==='all'){const ys=availYears();trendYear=ys[ys.length-1]||'all';}render();return;}
+  const lg=e.target.closest('[data-leg]');if(lg){const id=lg.dataset.leg;trendHidden[id]=!trendHidden[id];render();return;}
   const pg=e.target.closest('#revPg button');if(pg){revPage=+pg.dataset.p;renderRevs();return;}
   const th=e.target.closest('#branchCard th');if(th){const k=th.dataset.k;if(sortKey==k)sortDir*=-1;else{sortKey=k;sortDir=(k=='nm'||k=='city')?1:-1;}document.getElementById('branchCard').innerHTML=branchTable();return;}
   const tr=e.target.closest('tr.click');if(tr){cur=tr.dataset.go;tab='ob';revPage=0;render();window.scrollTo({top:0,behavior:'smooth'});}
