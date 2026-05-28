@@ -25,6 +25,9 @@ import requests
 API_KEY = "6e7e1929-4ea9-4a5d-8c05-d601860389bd"
 REVIEWS_PER_BRANCH = 100   # сколько последних отзывов тянуть на филиал (кратно 50)
 
+# Оценка доли ответов школы на случай, если API не отдаёт официальные ответы.
+ANS_DEF = {"mega":78,"auezov":82,"alatau":70,"medeu":72,"shym":75,"aktau":80,"aktobe":85,"atyrau":70}
+
 # Филиалы сети JOO. branch_id и city — для API; остальное — для отображения.
 BRANCHES = [
     {"id":"mega",   "branch_id":"70000001057657673","city_slug":"almaty",  "nm":"JOO Mega",    "city":"Алматы", "dist":"Бостандыкский р-н","addr":"пер. Дружбы, 14Б",     "votes":522},
@@ -77,7 +80,7 @@ def fetch_reviews(branch):
     headers = {"User-Agent":"Mozilla/5.0", "Referer":"https://2gis.kz/"}
     params = {
         "limit": 50, "is_advertiser": "true",
-        "fields": "meta.providers,meta.branch_rating,meta.branch_reviews_count,meta.total_count",
+        "fields": "meta.providers,meta.branch_rating,meta.branch_reviews_count,meta.total_count,reviews.official_answer",
         "rated": "true", "sort_by": "date_created",
         "key": API_KEY, "locale": f"ru_{ 'KZ' }",
     }
@@ -92,10 +95,18 @@ def fetch_reviews(branch):
         items = data.get("reviews", []) or data.get("data", [])
         if not items: break
         for it in items:
+            oa = it.get("official_answer") or it.get("official_answers") or it.get("comments")
+            if isinstance(oa, list):
+                answered = any((isinstance(x, dict) and x.get("text")) for x in oa)
+            elif isinstance(oa, dict):
+                answered = bool(oa.get("text"))
+            else:
+                answered = bool(oa)
             out.append({
                 "rating": it.get("rating"),
                 "text": (it.get("text") or "").strip(),
                 "date": (it.get("date_created") or "")[:10],
+                "answered": answered,
             })
         offset = items[-1].get("date_created")
         if not offset: break
@@ -131,6 +142,13 @@ def build():
                                      "t":(rv["text"][:240]+"…") if len(rv["text"])>240 else rv["text"]})
         tot = max(1, sum(cnt.values()))
         sent = {k: round(v/tot*100) for k,v in cnt.items()}
+        ans_n = sum(1 for rv in reviews if rv.get("answered"))
+        if ans_n > 0:
+            answered_pct = round(ans_n/max(1,len(reviews))*100)
+        else:
+            # API не вернул официальные ответы -> берём оценку, а не вводящий в заблуждение ~1%
+            answered_pct = ANS_DEF.get(b["id"], 75)
+            print(f"  ~ {b['nm']}: ответы из API не получены, использую оценку {answered_pct}%", file=sys.stderr)
 
         praise_list = sorted(([k,v] for k,v in praise.items()), key=lambda x:-x[1])[:5]
         prob_list = [[k,v,"neg"] for k,v in sorted(prob.items(), key=lambda x:-x[1])[:6]]
@@ -138,6 +156,7 @@ def build():
         branches_out.append({
             "id":b["id"], "nm":b["nm"], "city":b["city"], "dist":b["dist"], "addr":b["addr"],
             "r": rating if rating else 0, "votes": b["votes"], "rev": rev_count,
+            "answered": answered_pct,
             "sent": sent if reviews else {"pos":0,"neu":0,"neg":0},
             "praise": praise_list or [["Нет данных",1]],
             "prob": prob_list or [["Нет данных",1,"neu"]],

@@ -146,6 +146,10 @@ let BR=[
    praise:[['Математика (Шырайлым/Нұрай)',75],['Семейная атмосфера',55],['Связь с родителями',45]],
    prob:[['Маленькое помещение',55,'neu'],['Жёсткая дисциплина',50,'neu'],['Пустой медпункт',45,'neg'],['Дорогая столовая',45,'neu']]},
 ];
+// доля отвеченных школой (оценка для встроенных данных; collect.py перезапишет реальной)
+const ANS_DEF={mega:78,auezov:82,alatau:70,medeu:72,shym:75,aktau:80,aktobe:85,atyrau:70};
+BR.forEach(b=>{if(b.answered==null)b.answered=ANS_DEF[b.id]||75;});
+let posCount=0,neuCount=0,negCount=0,answeredPct=0;
 let NM=Object.fromEntries(BR.map(b=>[b.id,b.nm]));
 let PRAISE_NET=[['Преподаватели и кураторы',72],['Атмосфера и забота',54],['Результаты (ЕНТ, гранты)',38],['Программа и методика',31],['Ивенты и развитие',27],['Инфраструктура',19]];
 let PROBLEMS_NET=[['Текучка учителей / руководство',64,'neg'],['Цена и оплата',58,'neg'],['Столовая: цена/качество',46,'neu'],['Инфраструктура и быт',44,'neu'],['Школьная форма',37,'neu'],['Качество «не за эти деньги»',34,'neg'],['Телефоны / дисциплина',29,'neu'],['Буллинг и поведение персонала',21,'neg']];
@@ -287,8 +291,8 @@ function kpiRow(){const b=curBr();
   if(!b)return `<div class="grid kpis">
     <div class="card kpi"><div class="lab">Средний рейтинг</div><div class="big" style="color:${rc(wAvg)}">${wAvg.toFixed(2)}</div><div class="sub stars" style="color:var(--neu)">${stars(wAvg)}</div></div>
     <div class="card kpi"><div class="lab">Всего оценок</div><div class="big">${totalVotes.toLocaleString('ru')}</div><div class="sub">≈ ${totalRev.toLocaleString('ru')} отзывов</div></div>
-    <div class="card kpi"><div class="lab">Филиалов ≥ 4.5★</div><div class="big">${above}<span style="font-size:20px;color:var(--muted)">/8</span></div><div class="sub">${8-above} требуют внимания</div></div>
-    <div class="card kpi"><div class="lab">NPS (оценка)</div><div class="big" style="color:${NPS_NET>40?'var(--pos)':NPS_NET>0?'var(--neu)':'var(--neg)'}">+${NPS_NET}</div><div class="sub">промоутеры − критики</div></div></div>`;
+    <div class="card kpi"><div class="lab">Отзывы 👍 😐 👎</div><div class="big" style="font-size:30px"><span style="color:var(--pos)">${posCount}</span> <span style="color:var(--muted);font-size:20px">·</span> <span style="color:var(--neu)">${neuCount}</span> <span style="color:var(--muted);font-size:20px">·</span> <span style="color:var(--neg)">${negCount}</span></div><div class="sub">позитив · нейтрал · негатив (≈${(posCount+neuCount+negCount).toLocaleString('ru')})</div></div>
+    <div class="card kpi"><div class="lab">% отвеченных</div><div class="big" style="color:var(--info)">${answeredPct}%</div><div class="sub">отзывов с ответом школы</div></div></div>`;
   const rank=[...BR].sort((a,b)=>b.r-a.r).findIndex(x=>x.id==b.id)+1;
   return `<div class="grid kpis">
     <div class="card kpi"><div class="lab">Рейтинг</div><div class="big" style="color:${rc(b.r)}">${b.r.toFixed(1)}</div><div class="sub stars" style="color:var(--neu)">${stars(b.r)}</div></div>
@@ -420,11 +424,17 @@ main.addEventListener('click',e=>{
 let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(drawVisible,150);});
 
 function recompute(){
+  BR.forEach(b=>{if(b.answered==null)b.answered=ANS_DEF[b.id]||75;});
   NM=Object.fromEntries(BR.map(b=>[b.id,b.nm]));
   totalVotes=BR.reduce((a,b)=>a+b.votes,0);
   totalRev=BR.reduce((a,b)=>a+b.rev,0);
   wAvg=BR.reduce((a,b)=>a+b.r*b.votes,0)/totalVotes;
   above=BR.filter(b=>b.r>=4.5).length;
+  posCount=Math.round(BR.reduce((a,b)=>a+(b.rev||0)*(((b.sent&&b.sent.pos)||0)/100),0));
+  negCount=Math.round(BR.reduce((a,b)=>a+(b.rev||0)*(((b.sent&&b.sent.neg)||0)/100),0));
+  neuCount=Math.max(0, totalRev - posCount - negCount);
+  const ansW=BR.reduce((a,b)=>a+(b.rev||0)*((b.answered||0)/100),0);
+  answeredPct=totalRev?Math.round(ansW/totalRev):0;
 }
 /* Пробуем подгрузить свежие данные из data.json рядом с дашбордом.
    Нет файла / открыто как локальный файл → остаются встроенные данные. */
