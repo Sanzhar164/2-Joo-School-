@@ -216,6 +216,16 @@ const TEMPLATES=[
  ['Инфраструктура (вода, туалеты, ремонт)','Здравствуйте! Спасибо, что сообщили — это то, что мы можем и должны исправить. Передали хозяйственной службе. Напишите, пожалуйста, филиал и кабинет, чтобы устранить точечно и быстро.'],
 ];
 const TREND={labels:['Сен','Окт','Ноя','Дек','Янв','Фев','Мар','Апр','Май'],vol:[34,46,58,71,118,84,79,132,96]};
+const MONTHS_RU=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+const monLabel=ym=>{const [y,m]=ym.split('-');return MONTHS_RU[(+m)-1]+' '+y.slice(2);};
+// реальный помесячный ряд: для выбранного филиала или сумма по всей сети
+function monthlySeries(){
+  const b=curBr(), src=b?[b]:BR, acc={};let any=false;
+  src.forEach(x=>{if(x.monthly){any=true;for(const k in x.monthly)acc[k]=(acc[k]||0)+x.monthly[k];}});
+  if(!any) return null;
+  const keys=Object.keys(acc).sort();
+  return {labels:keys.map(monLabel), data:keys.map(k=>acc[k])};
+}
 
 /* ===================== РАСЧЁТЫ ===================== */
 let totalVotes=BR.reduce((a,b)=>a+b.votes,0), totalRev=BR.reduce((a,b)=>a+b.rev,0);
@@ -254,18 +264,20 @@ function hbars(x,w,h,items,max){const pad=8,gap=10,n=items.length,bh=(h-pad*2-ga
     const bx=lw,bw=w-lw-44,val=it.v/max*bw;x.fillStyle=cv('--line');rr(x,bx,y+bh/2-5,bw,10,5);x.fill();
     x.fillStyle=it.c;rr(x,bx,y+bh/2-5,Math.max(6,val),10,5);x.fill();
     x.fillStyle=cv('--muted');x.textAlign='right';x.font='600 12px ui-sans-serif';x.fillText(it.t,w,y+bh/2);});}
-function line(x,w,h,labels,data,col){const padL=30,padR=12,padT=14,padB=24,gw=w-padL-padR,gh=h-padT-padB,mx=Math.max(...data)*1.1;
+function line(x,w,h,labels,data,col){const padL=30,padR=12,padT=14,padB=24,gw=w-padL-padR,gh=h-padT-padB,mx=Math.max(...data,1)*1.1;
   x.strokeStyle=cv('--line');x.lineWidth=1;x.fillStyle=cv('--muted');x.font='10px ui-sans-serif';x.textAlign='right';x.textBaseline='middle';
   for(let i=0;i<=3;i++){const gy=padT+gh*i/3;x.beginPath();x.moveTo(padL,gy);x.lineTo(w-padR,gy);x.stroke();x.fillText(Math.round(mx*(1-i/3)),padL-6,gy);}
-  const px=i=>padL+gw*i/(labels.length-1),py=v=>padT+gh*(1-v/mx);
+  const n=labels.length, px=i=>n<2?padL+gw/2:padL+gw*i/(n-1), py=v=>padT+gh*(1-v/mx);
   const g=x.createLinearGradient(0,padT,0,padT+gh);g.addColorStop(0,col+'55');g.addColorStop(1,col+'00');
-  x.beginPath();x.moveTo(px(0),py(data[0]));data.forEach((v,i)=>x.lineTo(px(i),py(v)));x.lineTo(px(labels.length-1),padT+gh);x.lineTo(px(0),padT+gh);x.closePath();x.fillStyle=g;x.fill();
+  x.beginPath();x.moveTo(px(0),py(data[0]));data.forEach((v,i)=>x.lineTo(px(i),py(v)));x.lineTo(px(n-1),padT+gh);x.lineTo(px(0),padT+gh);x.closePath();x.fillStyle=g;x.fill();
   x.beginPath();x.moveTo(px(0),py(data[0]));data.forEach((v,i)=>x.lineTo(px(i),py(v)));x.strokeStyle=col;x.lineWidth=2.4;x.lineJoin='round';x.stroke();
-  data.forEach((v,i)=>{x.beginPath();x.arc(px(i),py(v),3,0,7);x.fillStyle=col;x.fill();x.fillStyle=cv('--muted');x.font='10px ui-sans-serif';x.textAlign='center';x.textBaseline='top';x.fillText(labels[i],px(i),padT+gh+6);});}
+  const step=Math.ceil(n/12);
+  data.forEach((v,i)=>{x.beginPath();x.arc(px(i),py(v),3,0,7);x.fillStyle=col;x.fill();
+    if(i%step===0||i===n-1){x.fillStyle=cv('--muted');x.font='10px ui-sans-serif';x.textAlign='center';x.textBaseline='top';x.fillText(labels[i],px(i),padT+gh+6);}});}
 function rr(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();}
 
 reg('cSent',(x,w,h)=>{const s=scSent();donut(x,w,h,[{v:s.pos,c:cv('--pos')},{v:s.neu,c:cv('--neu')},{v:s.neg,c:cv('--neg')}],{big:s.pos+'%',sm:'позитив'});});
-reg('cTrend',(x,w,h)=>line(x,w,h,TREND.labels,TREND.vol,cv('--brand')));
+reg('cTrend',(x,w,h)=>{const s=monthlySeries(); if(s&&s.labels.length) line(x,w,h,s.labels,s.data,cv('--brand')); else line(x,w,h,TREND.labels,TREND.vol,cv('--brand'));});
 reg('cBranch',(x,w,h)=>hbars(x,w,h,[...BR].sort((a,b)=>b.r-a.r).map(b=>({l:b.nm.replace('JOO ',''),v:b.r,t:b.r.toFixed(1),c:cv(rc(b.r).slice(4,-1))})),5));
 reg('cThemeP',(x,w,h)=>{const d=scPraise(),mx=Math.max(...d.map(p=>p[1]),1);hbars(x,w,h,d.map(p=>({l:p[0],v:p[1],t:p[1]+'%',c:cv('--pos')})),mx);});
 reg('cThemeN',(x,w,h)=>{const d=scProb(),mx=Math.max(...d.map(p=>p[1]),1);hbars(x,w,h,d.map(p=>({l:p[0],v:p[1],t:String(p[1]),c:p[2]=='neg'?cv('--neg'):cv('--neu')})),mx);});
@@ -307,7 +319,7 @@ function obView(){const b=curBr();const s=scSent();
     return scopeHead()+`<p class="lead">Сводка по всей сети. Выбери филиал в строке выше, чтобы увидеть отдельный отчёт по нему. Рейтинги и число оценок — фактические с 2ГИС; сентимент, NPS и тренд — оценочные по выборке.</p>
       ${kpiRow()}
       <div class="grid c21" style="margin-top:16px">
-        <div class="card"><h2 class="sec" style="margin-top:0">Динамика отзывов · сен 2025 – май 2026</h2><canvas id="cTrend" style="height:230px"></canvas><p class="note">Иллюстративно по выборке: пики — сезон ЕНТ (январь) и весенний набор (апрель).</p></div>
+        <div class="card"><h2 class="sec" style="margin-top:0">Отзывы по месяцам · вся сеть</h2><canvas id="cTrend" style="height:230px"></canvas>${trendNote()}</div>
         ${right}</div>
       <div class="grid c21" style="margin-top:16px">
         <div class="card"><h2 class="sec" style="margin-top:0">Рейтинг по филиалам</h2><canvas id="cBranch" style="height:260px"></canvas></div>
@@ -317,10 +329,15 @@ function obView(){const b=curBr();const s=scSent();
   // branch overview
   return scopeHead()+`<p class="lead">Отдельный отчёт по филиалу <b>${b.nm}</b> (${b.city}). Ниже — его рейтинг, сентимент, что хвалят и что критикуют именно в этом филиале.</p>
     ${kpiRow()}
+    <div class="card" style="margin-top:16px"><h2 class="sec" style="margin-top:0">Отзывы по месяцам · ${b.nm}</h2><canvas id="cTrend" style="height:220px"></canvas>${trendNote()}</div>
     <div class="grid c21" style="margin-top:16px">
       <div class="card"><h2 class="sec" style="margin-top:0">Что хвалят в этом филиале</h2><canvas id="cThemeP" style="height:200px"></canvas></div>
       ${right}</div>
     <div class="card" style="margin-top:16px"><h2 class="sec" style="margin-top:0">Проблемные темы филиала</h2><canvas id="cThemeN" style="height:${Math.max(160,b.prob.length*44)}px"></canvas></div>`;}
+
+function trendNote(){return monthlySeries()
+  ? `<p class="note">По реальным датам отзывов, собранных с 2ГИС.</p>`
+  : `<p class="note">Иллюстративно: реальные даты появятся после сбора новой версией кнопки.</p>`;}
 
 function praiseView(){const b=curBr();const d=scPraise();const q=scRevs().filter(r=>r.s=='pos').slice(0,6);
   return scopeHead()+`<p class="lead">${b?`Что ценят в филиале <b>${b.nm}</b>.`:'Что ценят по всей сети.'} Главный актив — конкретные учителя и кураторы.</p>
