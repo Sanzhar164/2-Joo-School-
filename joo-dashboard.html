@@ -230,23 +230,29 @@ const monLabel=ym=>{const [y,m]=ym.split('-');return MONTHS_RU[(+m)-1]+' '+y.sli
 const dayLabel=ymd=>{const p=ymd.split('-');return p[2]+'.'+p[1];};
 // состояние графика
 let trendYear='all', trendGran='month';
+const BRC={mega:'#36c5a8',auezov:'#5b9bf2',alatau:'#f5b945',medeu:'#f4576b',shym:'#a78bfa',aktau:'#34d399',aktobe:'#fb923c',atyrau:'#22d3ee'};
 const hasDaily=()=> (curBr()?[curBr()]:BR).some(x=>x.daily);
 function aggMonth(daily){const o={};for(const k in daily)o[k.slice(0,7)]=(o[k.slice(0,7)]||0)+daily[k];return o;}
+function periodMap(x,gran){return gran==='day'?(x.daily||{}):(x.daily?aggMonth(x.daily):(x.monthly||{}));}
 function availYears(){const set=new Set(),src=curBr()?[curBr()]:BR;
   src.forEach(x=>{const m=x.daily||x.monthly||{};for(const k in m)set.add(k.slice(0,4));});
   return [...set].sort();}
-// гибкий ряд: год (или все) × месяцы/дни, для филиала или всей сети
-function trendSeries(){
-  const src=curBr()?[curBr()]:BR, acc={};let any=false;
+// данные графика: один филиал = 1 линия; вся сеть = по линии на каждый филиал
+function trendData(){
+  const b=curBr();
   let gran=trendGran; if(gran==='day' && !hasDaily()) gran='month';
-  src.forEach(x=>{
-    let m = gran==='day' ? (x.daily||{}) : (x.daily?aggMonth(x.daily):(x.monthly||{}));
-    if(Object.keys(m).length) any=true;
-    for(const k in m){ if(trendYear!=='all' && k.slice(0,4)!==trendYear) continue; acc[k]=(acc[k]||0)+m[k]; }
-  });
-  if(!any) return null;
-  const keys=Object.keys(acc).sort();
-  return {labels:keys.map(k=>gran==='day'?dayLabel(k):monLabel(k)), data:keys.map(k=>acc[k]), keys, gran};
+  const inYear=k=>trendYear==='all'||k.slice(0,4)===trendYear;
+  if(b){
+    const m=periodMap(b,gran), keys=Object.keys(m).filter(inYear).sort();
+    if(!keys.length) return null;
+    return {gran,multi:false,keys,labels:keys.map(k=>gran==='day'?dayLabel(k):monLabel(k)),data:keys.map(k=>m[k])};
+  }
+  const set=new Set();
+  BR.forEach(x=>{const m=periodMap(x,gran);for(const k in m)if(inYear(k))set.add(k);});
+  const keys=[...set].sort();
+  if(!keys.length) return null;
+  const series=BR.map(x=>{const m=periodMap(x,gran);return {id:x.id,nm:x.nm,color:BRC[x.id]||'#888',data:keys.map(k=>m[k]||0)};});
+  return {gran,multi:true,keys,labels:keys.map(k=>gran==='day'?dayLabel(k):monLabel(k)),series};
 }
 
 /* ===================== РАСЧЁТЫ ===================== */
@@ -297,11 +303,24 @@ function line(x,w,h,labels,data,col){const padL=30,padR=12,padT=14,padB=24,gw=w-
   data.forEach((v,i)=>{const X=px(i),Y=py(v);pts.push({x:X,y:Y,v,label:labels[i]});x.beginPath();x.arc(X,Y,3,0,7);x.fillStyle=col;x.fill();
     if(i%step===0||i===n-1){x.fillStyle=cv('--muted');x.font='10px ui-sans-serif';x.textAlign='center';x.textBaseline='top';x.fillText(labels[i],X,padT+gh+6);}});
   return pts;}
+function multiLine(x,w,h,labels,series){const padL=30,padR=12,padT=14,padB=24,gw=w-padL-padR,gh=h-padT-padB;
+  let mx=1;series.forEach(s=>s.data.forEach(v=>{if(v>mx)mx=v;}));mx*=1.1;
+  x.strokeStyle=cv('--line');x.lineWidth=1;x.fillStyle=cv('--muted');x.font='10px ui-sans-serif';x.textAlign='right';x.textBaseline='middle';
+  for(let i=0;i<=3;i++){const gy=padT+gh*i/3;x.beginPath();x.moveTo(padL,gy);x.lineTo(w-padR,gy);x.stroke();x.fillText(Math.round(mx*(1-i/3)),padL-6,gy);}
+  const n=labels.length, px=i=>n<2?padL+gw/2:padL+gw*i/(n-1), py=v=>padT+gh*(1-v/mx);
+  series.forEach(s=>{x.beginPath();x.moveTo(px(0),py(s.data[0]));s.data.forEach((v,i)=>x.lineTo(px(i),py(v)));x.strokeStyle=s.color;x.lineWidth=2;x.lineJoin='round';x.stroke();
+    s.data.forEach((v,i)=>{x.beginPath();x.arc(px(i),py(v),2.1,0,7);x.fillStyle=s.color;x.fill();});});
+  const step=Math.ceil(n/12);x.fillStyle=cv('--muted');x.font='10px ui-sans-serif';x.textAlign='center';x.textBaseline='top';
+  labels.forEach((l,i)=>{if(i%step===0||i===n-1)x.fillText(l,px(i),padT+gh+6);});
+  return labels.map((l,i)=>({x:px(i),label:l,rows:series.map(s=>({nm:s.nm,color:s.color,v:s.data[i]}))}));}
 function rr(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();}
 
 reg('cSent',(x,w,h)=>{const s=scSent();donut(x,w,h,[{v:s.pos,c:cv('--pos')},{v:s.neu,c:cv('--neu')},{v:s.neg,c:cv('--neg')}],{big:s.pos+'%',sm:'позитив'});});
-let trendPts=[];
-reg('cTrend',(x,w,h)=>{const s=trendSeries(); if(s&&s.labels.length) trendPts=line(x,w,h,s.labels,s.data,cv('--brand')); else {trendPts=[];line(x,w,h,TREND.labels,TREND.vol,cv('--brand'));}});
+let trendPts=[], trendMulti=false;
+reg('cTrend',(x,w,h)=>{const t=trendData();
+  if(!t){trendMulti=false;trendPts=[];line(x,w,h,TREND.labels,TREND.vol,cv('--brand'));return;}
+  if(t.multi){trendMulti=true;trendPts=multiLine(x,w,h,t.labels,t.series);}
+  else{trendMulti=false;trendPts=line(x,w,h,t.labels,t.data,cv('--brand'));}});
 reg('cBranch',(x,w,h)=>hbars(x,w,h,[...BR].sort((a,b)=>b.r-a.r).map(b=>({l:b.nm.replace('JOO ',''),v:b.r,t:b.r.toFixed(1),c:cv(rc(b.r).slice(4,-1))})),5));
 reg('cThemeP',(x,w,h)=>{const d=scPraise(),mx=Math.max(...d.map(p=>p[1]),1);hbars(x,w,h,d.map(p=>({l:p[0],v:p[1],t:p[1]+'%',c:cv('--pos')})),mx);});
 reg('cThemeN',(x,w,h)=>{const d=scProb(),mx=Math.max(...d.map(p=>p[1]),1);hbars(x,w,h,d.map(p=>({l:p[0],v:p[1],t:String(p[1]),c:p[2]=='neg'?cv('--neg'):cv('--neu')})),mx);});
@@ -368,11 +387,12 @@ function trendControls(){
     `<button class="yb${trendGran==='day'?' active':''}" data-tg="day"${dayOff}>Дни</button>`;
   return `<div class="tctl">${yb}<span class="sep"></span>${gb}</div>`;}
 function trendCard(title){
+  const legend = !curBr() ? `<div class="legend" style="margin-top:10px">`+BR.map(x=>`<span><i style="background:${BRC[x.id]}"></i>${x.nm.replace('JOO ','')}</span>`).join('')+`</div>` : '';
   return `<div class="card"><h2 class="sec" style="margin-top:0">${title}</h2>${trendControls()}
-    <div class="chartwrap"><canvas id="cTrend" style="height:230px"></canvas><div class="tip" id="cTrendTip"></div></div>
-    ${trendNote()}</div>`;}
-function trendNote(){const s=trendSeries();return s
-  ? `<p class="note">По реальным датам отзывов с 2ГИС. Наведи на точку — покажет число отзывов.</p>`
+    <div class="chartwrap"><canvas id="cTrend" style="height:260px"></canvas><div class="tip" id="cTrendTip"></div></div>
+    ${legend}${trendNote()}</div>`;}
+function trendNote(){const t=trendData();return t
+  ? `<p class="note">${t.multi?'Каждая линия — отдельный филиал. ':''}По реальным датам отзывов с 2ГИС. Наведи на график — покажет числа.</p>`
   : `<p class="note">Иллюстративно: реальные даты появятся после сбора новой версией кнопки.</p>`;}
 
 function praiseView(){const b=curBr();const d=scPraise();const q=scRevs().filter(r=>r.s=='pos').slice(0,6);
@@ -479,13 +499,21 @@ main.addEventListener('click',e=>{
 // тултип на графике динамики
 main.addEventListener('mousemove',e=>{
   const c=document.getElementById('cTrend'),tip=document.getElementById('cTrendTip');
-  if(!c||!tip||!trendPts.length)return;
+  if(!c||!tip||!trendPts.length){if(tip)tip.style.opacity=0;return;}
   if(e.target!==c){tip.style.opacity=0;return;}
-  const r=c.getBoundingClientRect(),mx=e.clientX-r.left;
-  let best=null,bd=1e9;
-  for(const p of trendPts){const d=Math.abs(p.x-mx);if(d<bd){bd=d;best=p;}}
-  if(best&&bd<28){tip.innerHTML=`${best.label}: <b>${best.v}</b> отз.`;tip.style.left=best.x+'px';tip.style.top=best.y+'px';tip.style.opacity=1;}
-  else tip.style.opacity=0;
+  const r=c.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  let best=null,bd=1e9;for(const p of trendPts){const d=Math.abs(p.x-mx);if(d<bd){bd=d;best=p;}}
+  if(best&&bd<30){
+    if(trendMulti){
+      const rows=best.rows.filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
+      tip.innerHTML=`<div style="margin-bottom:4px;font-weight:700">${best.label}</div>`+
+        (rows.length?rows.map(x=>`<div style="text-align:left"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${x.color};margin-right:6px"></span>${x.nm.replace('JOO ','')}: <b>${x.v}</b></div>`).join(''):'нет отзывов');
+      tip.style.left=Math.min(best.x,r.width-90)+'px';tip.style.top=Math.max(40,my)+'px';
+    }else{
+      tip.innerHTML=`${best.label}: <b>${best.v}</b> отз.`;tip.style.left=best.x+'px';tip.style.top=best.y+'px';
+    }
+    tip.style.opacity=1;
+  }else tip.style.opacity=0;
 });
 main.addEventListener('mouseleave',()=>{const tip=document.getElementById('cTrendTip');if(tip)tip.style.opacity=0;});
 let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(drawVisible,150);});
