@@ -100,6 +100,9 @@
   .tctl .yb:disabled{opacity:.4;cursor:not-allowed}
   .tctl .sep{width:1px;height:18px;background:var(--line);margin:0 4px}
   .chartwrap{position:relative}
+  .chartscroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
+  .chartscroll::-webkit-scrollbar{height:8px}
+  .chartscroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
   .tip{position:absolute;left:0;top:0;pointer-events:none;background:var(--panel);border:1px solid var(--brand);border-radius:9px;padding:6px 10px;font-size:12px;color:var(--ink);box-shadow:var(--shadow);opacity:0;transform:translate(-50%,-130%);white-space:nowrap;transition:opacity .08s;z-index:5}
   .tip b{color:var(--brand);font-size:14px}
   .foot{font-size:12px;color:var(--muted);text-align:center;margin-top:42px;line-height:1.7}
@@ -238,7 +241,7 @@ function periodMap(x,gran){return gran==='day'?(x.daily||{}):(x.daily?aggMonth(x
 function availYears(){const set=new Set(),src=curBr()?[curBr()]:BR;
   src.forEach(x=>{const m=x.daily||x.monthly||{};for(const k in m)set.add(k.slice(0,4));});
   return [...set].sort();}
-// данные графика
+// данные графика — всегда одна линия (сеть = сумма, филиал = его отзывы)
 function trendData(){
   const b=curBr();
   let gran=trendGran; if(gran==='day' && !hasDaily()) gran='month';
@@ -246,19 +249,13 @@ function trendData(){
   if(b){
     const m=periodMap(b,gran), keys=Object.keys(m).filter(inYear).sort();
     if(!keys.length) return null;
-    return {gran,multi:false,keys,labels:keys.map(k=>gran==='day'?dayLabel(k):monLabel(k)),data:keys.map(k=>m[k])};
+    return {gran,keys,labels:keys.map(k=>gran==='day'?dayLabel(k):monLabel(k)),data:keys.map(k=>m[k])};
   }
   const set=new Set();
   BR.forEach(x=>{const m=periodMap(x,gran);for(const k in m)if(inYear(k))set.add(k);});
   const keys=[...set].sort();
   if(!keys.length) return null;
-  const labels=keys.map(k=>gran==='day'?dayLabel(k):monLabel(k));
-  if(trendMode==='net'){
-    const data=keys.map(k=>BR.reduce((a,x)=>a+(periodMap(x,gran)[k]||0),0));
-    return {gran,multi:false,keys,labels,data};
-  }
-  const series=BR.map(x=>{const m=periodMap(x,gran);return {id:x.id,nm:x.nm,color:BRC[x.id]||'#888',data:keys.map(k=>m[k]||0)};});
-  return {gran,multi:true,keys,labels,series};
+  return {gran,keys,labels:keys.map(k=>gran==='day'?dayLabel(k):monLabel(k)),data:keys.map(k=>BR.reduce((a,x)=>a+(periodMap(x,gran)[k]||0),0))};
 }
 
 /* ===================== РАСЧЁТЫ ===================== */
@@ -322,11 +319,10 @@ function multiLine(x,w,h,labels,series){const padL=30,padR=12,padT=14,padB=24,gw
 function rr(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();}
 
 reg('cSent',(x,w,h)=>{const s=scSent();donut(x,w,h,[{v:s.pos,c:cv('--pos')},{v:s.neu,c:cv('--neu')},{v:s.neg,c:cv('--neg')}],{big:s.pos+'%',sm:'позитив'});});
-let trendPts=[], trendMulti=false;
+let trendPts=[];
 reg('cTrend',(x,w,h)=>{const t=trendData();
-  if(!t){trendMulti=false;trendPts=[];line(x,w,h,TREND.labels,TREND.vol,cv('--brand'));return;}
-  if(t.multi){trendMulti=true;const vis=t.series.filter(s=>!trendHidden[s.id]);trendPts=vis.length?multiLine(x,w,h,t.labels,vis):(line(x,w,h,t.labels,t.labels.map(_=>0),cv('--brand')),[]);}
-  else{trendMulti=false;trendPts=line(x,w,h,t.labels,t.data,cv('--brand'));}});
+  if(!t){trendPts=[];line(x,w,h,TREND.labels,TREND.vol,cv('--brand'));return;}
+  trendPts=line(x,w,h,t.labels,t.data,cv('--brand'));});
 reg('cBranch',(x,w,h)=>hbars(x,w,h,[...BR].sort((a,b)=>b.r-a.r).map(b=>({l:b.nm.replace('JOO ',''),v:b.r,t:b.r.toFixed(1),c:cv(rc(b.r).slice(4,-1))})),5));
 reg('cThemeP',(x,w,h)=>{const d=scPraise(),mx=Math.max(...d.map(p=>p[1]),1);hbars(x,w,h,d.map(p=>({l:p[0],v:p[1],t:p[1]+'%',c:cv('--pos')})),mx);});
 reg('cThemeN',(x,w,h)=>{const d=scProb(),mx=Math.max(...d.map(p=>p[1]),1);hbars(x,w,h,d.map(p=>({l:p[0],v:p[1],t:String(p[1]),c:p[2]=='neg'?cv('--neg'):cv('--neu')})),mx);});
@@ -367,14 +363,13 @@ function obView(){const b=curBr();const s=scSent();
   if(!b){const sorted=[...BR].sort((a,b)=>b.r-a.r),top3=sorted.slice(0,3),bot3=[...sorted].reverse().slice(0,3);
     return scopeHead()+`<p class="lead">Сводка по всей сети. Выбери филиал в строке выше, чтобы увидеть отдельный отчёт по нему. Рейтинги и число оценок — фактические с 2ГИС; сентимент, NPS и тренд — оценочные по выборке.</p>
       ${kpiRow()}
+      <div style="margin-top:16px">${trendCard('Отзывы по периодам · вся сеть')}</div>
       <div class="grid c21" style="margin-top:16px">
-        ${trendCard('Отзывы по периодам · вся сеть')}
-        ${right}</div>
-      <div class="grid c21" style="margin-top:16px">
-        <div class="card"><h2 class="sec" style="margin-top:0">Рейтинг по филиалам</h2><canvas id="cBranch" style="height:260px"></canvas></div>
+        ${right}
         <div class="card"><h2 class="sec" style="margin-top:0">🏅 Топ-3 / ⚠️ Внимание</h2>
           ${top3.map(b=>`<div class="bch"><span class="dot" style="background:var(--pos)"></span><span class="nm">${b.nm}</span><span class="mini">${b.r.toFixed(1)}★ · ${b.city}</span></div>`).join('')}<div style="height:10px"></div>
-          ${bot3.map(b=>`<div class="bch"><span class="dot" style="background:${rc(b.r)}"></span><span class="nm">${b.nm}</span><span class="mini">${b.r.toFixed(1)}★ · ${b.city}</span></div>`).join('')}</div></div>`;}
+          ${bot3.map(b=>`<div class="bch"><span class="dot" style="background:${rc(b.r)}"></span><span class="nm">${b.nm}</span><span class="mini">${b.r.toFixed(1)}★ · ${b.city}</span></div>`).join('')}</div></div>
+      <div class="card" style="margin-top:16px"><h2 class="sec" style="margin-top:0">Рейтинг по филиалам</h2><canvas id="cBranch" style="height:280px"></canvas></div>`;}
   // branch overview
   return scopeHead()+`<p class="lead">Отдельный отчёт по филиалу <b>${b.nm}</b> (${b.city}). Ниже — его рейтинг, сентимент, что хвалят и что критикуют именно в этом филиале.</p>
     ${kpiRow()}
@@ -391,17 +386,18 @@ function trendControls(){
   const dayOff=hasDaily()?'':' disabled title="нужно пересобрать данные новой кнопкой"';
   const gb=`<button class="yb${trendGran==='month'?' active':''}" data-tg="month">Месяцы</button>`+
     `<button class="yb${trendGran==='day'?' active':''}" data-tg="day"${dayOff}>Дни</button>`;
-  const mb=!curBr()?`<span class="sep"></span><button class="yb${trendMode==='net'?' active':''}" data-tm="net">Сеть</button>`+
-    `<button class="yb${trendMode==='branches'?' active':''}" data-tm="branches">По филиалам</button>`:'';
-  return `<div class="tctl">${yb}<span class="sep"></span>${gb}${mb}</div>`;}
+  return `<div class="tctl">${yb}<span class="sep"></span>${gb}</div>`;}
 function trendCard(title){
-  const legend = (!curBr() && trendMode==='branches')
-    ? `<div class="legend lg-click" style="margin-top:10px">`+BR.map(x=>`<span data-leg="${x.id}" style="cursor:pointer;${trendHidden[x.id]?'opacity:.32':''}"><i style="background:${BRC[x.id]}"></i>${x.nm.replace('JOO ','')}</span>`).join('')+`</div>` : '';
+  const t=trendData(), n=t?t.labels.length:9;
+  const px=(t&&t.gran==='day')?22:60;            // ширина на одну точку
+  const cw=Math.max(0,n*px);                       // желаемая ширина холста
   return `<div class="card"><h2 class="sec" style="margin-top:0">${title}</h2>${trendControls()}
-    <div class="chartwrap"><canvas id="cTrend" style="height:260px"></canvas><div class="tip" id="cTrendTip"></div></div>
-    ${legend}${trendNote()}</div>`;}
+    <div class="chartscroll"><div class="chartwrap" style="width:${cw}px;min-width:100%">
+      <canvas id="cTrend" style="width:100%;height:280px;display:block"></canvas>
+      <div class="tip" id="cTrendTip"></div></div></div>
+    ${trendNote()}</div>`;}
 function trendNote(){const t=trendData();return t
-  ? `<p class="note">${t.multi?'Каждая линия — филиал (клик по названию внизу — скрыть/показать). ':''}По реальным датам отзывов с 2ГИС. Наведи на график — покажет числа.</p>`
+  ? `<p class="note">По реальным датам отзывов с 2ГИС. Наведи на точку — покажет число; если точек много — прокрути график вбок.</p>`
   : `<p class="note">Иллюстративно: реальные даты появятся после сбора новой версией кнопки.</p>`;}
 
 function praiseView(){const b=curBr();const d=scPraise();const q=scRevs().filter(r=>r.s=='pos').slice(0,6);
@@ -501,8 +497,6 @@ main.addEventListener('change',e=>{if(['fb','fs'].includes(e.target.id)){revPage
 main.addEventListener('click',e=>{
   const yb=e.target.closest('.yb[data-ty]');if(yb){trendYear=yb.dataset.ty;render();return;}
   const gb=e.target.closest('.yb[data-tg]');if(gb&&!gb.disabled){trendGran=gb.dataset.tg;render();return;}
-  const tm=e.target.closest('.yb[data-tm]');if(tm){trendMode=tm.dataset.tm;if(trendMode==='branches'&&trendYear==='all'){const ys=availYears();trendYear=ys[ys.length-1]||'all';}render();return;}
-  const lg=e.target.closest('[data-leg]');if(lg){const id=lg.dataset.leg;trendHidden[id]=!trendHidden[id];render();return;}
   const pg=e.target.closest('#revPg button');if(pg){revPage=+pg.dataset.p;renderRevs();return;}
   const th=e.target.closest('#branchCard th');if(th){const k=th.dataset.k;if(sortKey==k)sortDir*=-1;else{sortKey=k;sortDir=(k=='nm'||k=='city')?1:-1;}document.getElementById('branchCard').innerHTML=branchTable();return;}
   const tr=e.target.closest('tr.click');if(tr){cur=tr.dataset.go;tab='ob';revPage=0;render();window.scrollTo({top:0,behavior:'smooth'});}
@@ -512,19 +506,10 @@ main.addEventListener('mousemove',e=>{
   const c=document.getElementById('cTrend'),tip=document.getElementById('cTrendTip');
   if(!c||!tip||!trendPts.length){if(tip)tip.style.opacity=0;return;}
   if(e.target!==c){tip.style.opacity=0;return;}
-  const r=c.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  const r=c.getBoundingClientRect(),mx=e.clientX-r.left;
   let best=null,bd=1e9;for(const p of trendPts){const d=Math.abs(p.x-mx);if(d<bd){bd=d;best=p;}}
-  if(best&&bd<30){
-    if(trendMulti){
-      const rows=best.rows.filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
-      tip.innerHTML=`<div style="margin-bottom:4px;font-weight:700">${best.label}</div>`+
-        (rows.length?rows.map(x=>`<div style="text-align:left"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${x.color};margin-right:6px"></span>${x.nm.replace('JOO ','')}: <b>${x.v}</b></div>`).join(''):'нет отзывов');
-      tip.style.left=Math.min(best.x,r.width-90)+'px';tip.style.top=Math.max(40,my)+'px';
-    }else{
-      tip.innerHTML=`${best.label}: <b>${best.v}</b> отз.`;tip.style.left=best.x+'px';tip.style.top=best.y+'px';
-    }
-    tip.style.opacity=1;
-  }else tip.style.opacity=0;
+  if(best&&bd<30){tip.innerHTML=`${best.label}: <b>${best.v}</b> отз.`;tip.style.left=best.x+'px';tip.style.top=best.y+'px';tip.style.opacity=1;}
+  else tip.style.opacity=0;
 });
 main.addEventListener('mouseleave',()=>{const tip=document.getElementById('cTrendTip');if(tip)tip.style.opacity=0;});
 let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(drawVisible,150);});
