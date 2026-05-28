@@ -25,8 +25,9 @@ import requests
 API_KEY = "6e7e1929-4ea9-4a5d-8c05-d601860389bd"
 REVIEWS_PER_BRANCH = 100   # сколько последних отзывов тянуть на филиал (кратно 50)
 
-# Оценка доли ответов школы на случай, если API не отдаёт официальные ответы.
-ANS_DEF = {"mega":78,"auezov":82,"alatau":70,"medeu":72,"shym":75,"aktau":80,"aktobe":85,"atyrau":70}
+# Базовые рейтинг и число отзывов (на случай, если API не вернёт их в мете).
+R_DEF   = {"mega":4.7,"auezov":4.6,"alatau":4.4,"medeu":4.0,"shym":4.6,"aktau":4.8,"aktobe":4.6,"atyrau":4.5}
+REV_DEF = {"mega":144,"auezov":117,"alatau":223,"medeu":108,"shym":232,"aktau":81,"aktobe":76,"atyrau":45}
 
 # Филиалы сети JOO. branch_id и city — для API; остальное — для отображения.
 BRANCHES = [
@@ -79,10 +80,9 @@ def fetch_reviews(branch):
     url = f"https://public-api.reviews.2gis.com/3.0/branches/{branch['branch_id']}/reviews"
     headers = {"User-Agent":"Mozilla/5.0", "Referer":"https://2gis.kz/"}
     params = {
-        "limit": 50, "is_advertiser": "true",
-        "fields": "meta.providers,meta.branch_rating,meta.branch_reviews_count,meta.total_count,reviews.official_answer",
+        "limit": 50,
         "rated": "true", "sort_by": "date_created",
-        "key": API_KEY, "locale": f"ru_{ 'KZ' }",
+        "key": API_KEY, "locale": "ru_KZ",
     }
     out, meta, offset = [], {}, None
     while len(out) < REVIEWS_PER_BRANCH:
@@ -122,8 +122,8 @@ def build():
         except Exception as e:
             print(f"  ! ошибка {b['nm']}: {e}", file=sys.stderr); reviews, meta = [], {}
 
-        rating = round(float(meta.get("branch_rating") or 0), 1) or None
-        rev_count = meta.get("branch_reviews_count") or meta.get("total_count") or len(reviews)
+        rating = round(float(meta.get("branch_rating") or 0), 1) or R_DEF.get(b["id"], 0)
+        rev_count = meta.get("branch_reviews_count") or meta.get("total_count") or REV_DEF.get(b["id"]) or len(reviews)
 
         # сентимент по филиалу
         cnt = {"pos":0,"neu":0,"neg":0}
@@ -143,19 +143,14 @@ def build():
         tot = max(1, sum(cnt.values()))
         sent = {k: round(v/tot*100) for k,v in cnt.items()}
         ans_n = sum(1 for rv in reviews if rv.get("answered"))
-        if ans_n > 0:
-            answered_pct = round(ans_n/max(1,len(reviews))*100)
-        else:
-            # API не вернул официальные ответы -> берём оценку, а не вводящий в заблуждение ~1%
-            answered_pct = ANS_DEF.get(b["id"], 75)
-            print(f"  ~ {b['nm']}: ответы из API не получены, использую оценку {answered_pct}%", file=sys.stderr)
+        answered_pct = round(ans_n/max(1,len(reviews))*100)  # реальный % по собранным отзывам
 
         praise_list = sorted(([k,v] for k,v in praise.items()), key=lambda x:-x[1])[:5]
         prob_list = [[k,v,"neg"] for k,v in sorted(prob.items(), key=lambda x:-x[1])[:6]]
 
         branches_out.append({
             "id":b["id"], "nm":b["nm"], "city":b["city"], "dist":b["dist"], "addr":b["addr"],
-            "r": rating if rating else 0, "votes": b["votes"], "rev": rev_count,
+            "r": rating, "votes": b["votes"], "rev": rev_count,
             "answered": answered_pct,
             "sent": sent if reviews else {"pos":0,"neu":0,"neg":0},
             "praise": praise_list or [["Нет данных",1]],
