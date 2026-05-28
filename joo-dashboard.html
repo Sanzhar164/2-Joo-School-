@@ -443,6 +443,9 @@ async function loadData(){
     const res=await fetch('data.json?ts='+Date.now(),{cache:'no-store'});
     if(!res.ok) throw 0;
     const d=await res.json();
+    // данные считаем валидными только если реально собраны отзывы (rev>0)
+    const valid=Array.isArray(d.branches)&&d.branches.some(b=>(b.rev||0)>0);
+    if(!valid) throw 0;
     if(Array.isArray(d.branches)&&d.branches.length){
       const byId=Object.fromEntries(BR.map(b=>[b.id,b]));
       BR=d.branches.map(b=>Object.assign({},byId[b.id]||{},b));
