@@ -434,7 +434,7 @@ function recompute(){
   negCount=Math.round(BR.reduce((a,b)=>a+(b.rev||0)*(((b.sent&&b.sent.neg)||0)/100),0));
   neuCount=Math.max(0, totalRev - posCount - negCount);
   const ansW=BR.reduce((a,b)=>a+(b.rev||0)*((b.answered||0)/100),0);
-  answeredPct=totalRev?Math.round(ansW/totalRev):0;
+  answeredPct=totalRev?Math.round(ansW/totalRev*100):0;
 }
 /* Пробуем подгрузить свежие данные из data.json рядом с дашбордом.
    Нет файла / открыто как локальный файл → остаются встроенные данные. */
