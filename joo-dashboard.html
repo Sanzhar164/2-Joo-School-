@@ -391,7 +391,7 @@ function bars(x,w,h,labels,stats){
   const pts=[];
   stats.forEach((s,i)=>{const X=px(i),yTop=py(s.n),hPos=yBase-yTop;
     if(s.n>0){const r=Math.min(4,bw/2,hPos/2);rr(x,X-bw/2,yTop,bw,hPos,r);x.fillStyle='#22c55e';x.fill();
-      if(s.neg>0){const negH=hPos*(s.neg/s.n);x.fillStyle='rgba(127,29,29,.85)';x.fillRect(X-bw/2,yBase-negH,bw,negH);}
+      if(s.neg>0){const negH=hPos*(s.neg/s.n);x.fillStyle='#ef4444';x.fillRect(X-bw/2,yBase-negH,bw,negH);}
       if(s.avg>0){x.fillStyle=rcRating(s.avg);x.font='bold 12px ui-sans-serif';x.textAlign='center';x.textBaseline='bottom';x.fillText(s.avg.toFixed(2),X,yTop-4);}}
     x.fillStyle=cv('--ink');x.font='11px ui-sans-serif';x.textAlign='center';x.textBaseline='top';x.fillText(s.n,X,yBase+5);
     x.fillStyle=cv('--muted');x.font='10px ui-sans-serif';x.fillText(labels[i],X,yBase+22);
