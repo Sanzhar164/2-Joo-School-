@@ -444,15 +444,9 @@ function obView(){const b=curBr();const s=scSent();
     <div class="card" style="margin-top:16px"><h2 class="sec" style="margin-top:0">Проблемные темы филиала</h2><canvas id="cThemeN" style="height:${Math.max(160,b.prob.length*44)}px"></canvas></div>`;}
 
 function trendControls(){
-  const years=availYears();
-  const yb=`<button class="yb${trendYear==='all'&&!trendFrom?' active':''}" data-ty="all">Все</button>`+
-    years.map(y=>`<button class="yb${trendYear===y?' active':''}" data-ty="${y}">${y}</button>`).join('');
-  const dayOff=hasDaily()?'':' disabled title="нужно пересобрать данные новой кнопкой"';
-  const gb=`<button class="yb${trendGran==='month'?' active':''}" data-tg="month">Месяцы</button>`+
-    `<button class="yb${trendGran==='day'?' active':''}" data-tg="day"${dayOff}>Дни</button>`;
   const pb=`<button class="yb dpbtn${pickerOpen?' active':''}" data-pickopen>📅 Период</button>`+
     (trendFrom&&trendTo?`<span class="dpchip" data-pick="reset">${fmtRange()} <span style="opacity:.7">✕</span></span>`:'');
-  return `<div class="tctl">${yb}<span class="sep"></span>${gb}<span class="sep"></span>${pb}</div>`;}
+  return `<div class="tctl">${pb}</div>`;}
 function trendCard(title){
   const t=trendData(), n=t?t.labels.length:9;
   const px=(t&&t.gran==='day')?22:60;
