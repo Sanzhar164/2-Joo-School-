@@ -103,6 +103,31 @@
   .chartscroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
   .chartscroll::-webkit-scrollbar{height:8px}
   .chartscroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+  .dpchip{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--brand);color:var(--ink);font-size:12px;padding:5px 11px;border-radius:20px;margin-left:6px;cursor:pointer}
+  .dpchip:hover{background:var(--brand);color:#04201a}
+  .dppop{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0 14px;box-shadow:var(--shadow);max-width:640px}
+  .dppresets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+  .dppr{font-size:12px;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 11px;cursor:pointer;transition:.12s}
+  .dppr:hover{border-color:var(--brand);color:var(--brand)}
+  .dpnavrow{display:flex;justify-content:space-between;margin-bottom:6px}
+  .dpnav{background:none;border:1px solid var(--line);color:var(--ink);cursor:pointer;font-size:16px;width:30px;height:30px;border-radius:8px;line-height:1}
+  .dpnav:hover{background:var(--panel);border-color:var(--brand)}
+  .dpcals{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:560px){.dpcals{grid-template-columns:1fr}}
+  .dpcal{user-select:none}
+  .dpchdr{text-align:center;font-weight:700;margin-bottom:8px;color:var(--ink)}
+  .dpdow{display:grid;grid-template-columns:repeat(7,1fr);font-size:11px;color:var(--muted);text-align:center;margin-bottom:4px}
+  .dpdays{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .dpd{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;border-radius:8px;color:var(--ink);transition:.08s}
+  .dpd.muted{color:var(--muted);opacity:.35}
+  .dpd:hover{background:var(--panel)}
+  .dpd.in{background:rgba(54,197,168,.18);border-radius:0}
+  .dpd.endpoint{background:var(--brand);color:#04201a;font-weight:800;border-radius:8px}
+  .dpfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .dpbtn-prim{background:var(--brand);color:#04201a;border:none;font-weight:700;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:13px}
+  .dpbtn-prim:disabled{opacity:.4;cursor:not-allowed}
+  .dpbtn-sec{background:none;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px}
+  .dpbtn-sec:hover{border-color:var(--brand)}
   .tip{position:absolute;left:0;top:0;pointer-events:none;background:var(--panel);border:1px solid var(--brand);border-radius:9px;padding:6px 10px;font-size:12px;color:var(--ink);box-shadow:var(--shadow);opacity:0;transform:translate(-50%,-130%);white-space:nowrap;transition:opacity .08s;z-index:5}
   .tip b{color:var(--brand);font-size:14px}
   .foot{font-size:12px;color:var(--muted);text-align:center;margin-top:42px;line-height:1.7}
@@ -234,6 +259,36 @@ const dayLabel=ymd=>{const p=ymd.split('-');return p[2]+'.'+p[1];};
 // состояние графика
 let trendYear='all', trendGran='month', trendMode='net';
 let trendHidden={};
+let trendFrom=null, trendTo=null;          // ISO YYYY-MM-DD выбранный диапазон
+let pickerOpen=false, pickerMonth=null, pickFrom=null, pickTo=null;
+const RU_MONLONG=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const ymdStr=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const parseYmd=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
+const addMon=(d,n)=>new Date(d.getFullYear(),d.getMonth()+n,1);
+function fmtRange(){if(!trendFrom||!trendTo)return '';const a=parseYmd(trendFrom),b=parseYmd(trendTo);const f=d=>d.getDate()+' '+RU_MONLONG[d.getMonth()].slice(0,3).toLowerCase()+' '+d.getFullYear();return f(a)+(trendFrom===trendTo?'':' — '+f(b));}
+
+function openPicker(){pickerOpen=true;const ref=trendFrom?parseYmd(trendFrom):new Date();pickerMonth=new Date(ref.getFullYear(),ref.getMonth(),1);pickFrom=trendFrom?parseYmd(trendFrom):null;pickTo=trendTo?parseYmd(trendTo):null;}
+
+function calRender(d){const y=d.getFullYear(),m=d.getMonth(),first=new Date(y,m,1);
+  let off=first.getDay();off=off===0?6:off-1;
+  const dim=new Date(y,m+1,0).getDate(),dimPrev=new Date(y,m,0).getDate();
+  const cells=[];
+  for(let i=0;i<off;i++)cells.push({d:new Date(y,m-1,dimPrev-off+1+i),muted:true});
+  for(let i=1;i<=dim;i++)cells.push({d:new Date(y,m,i),muted:false});
+  while(cells.length<42){const last=cells[cells.length-1].d,nd=new Date(last);nd.setDate(nd.getDate()+1);cells.push({d:nd,muted:true});}
+  const inR=D=>{if(!pickFrom||!pickTo)return false;const t=D.getTime(),a=Math.min(pickFrom.getTime(),pickTo.getTime()),b=Math.max(pickFrom.getTime(),pickTo.getTime());return t>=a&&t<=b;};
+  const isEnd=D=>{const t=D.getTime();return (pickFrom&&pickFrom.getTime()===t)||(pickTo&&pickTo.getTime()===t);};
+  return `<div class="dpcal"><div class="dpchdr">${RU_MONLONG[m]} ${y}</div>
+    <div class="dpdow"><div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div></div>
+    <div class="dpdays">${cells.map(c=>{const cls=['dpd'];if(c.muted)cls.push('muted');if(isEnd(c.d))cls.push('endpoint');else if(inR(c.d))cls.push('in');return `<div class="${cls.join(' ')}" data-pickday="${ymdStr(c.d)}">${c.d.getDate()}</div>`;}).join('')}</div></div>`;}
+
+function pickerPanel(){const left=pickerMonth,right=addMon(left,1);
+  const presets=[['today','Сегодня'],['yest','Вчера'],['d7','7 дней'],['d30','30 дней'],['tmonth','Этот месяц'],['lmonth','Прошлый месяц']];
+  return `<div class="dppop" data-pickpop>
+    <div class="dppresets">${presets.map(([k,n])=>`<button class="dppr" data-pickpre="${k}">${n}</button>`).join('')}</div>
+    <div class="dpnavrow"><button class="dpnav" data-picknav="-1">‹</button><button class="dpnav" data-picknav="1">›</button></div>
+    <div class="dpcals">${calRender(left)}${calRender(right)}</div>
+    <div class="dpfoot"><button class="dpbtn-sec" data-pick="reset">Сбросить</button><button class="dpbtn-sec" data-pick="cancel">Отмена</button><button class="dpbtn-prim" data-pick="apply"${(!pickFrom||!pickTo)?' disabled':''}>Применить</button></div></div>`;}
 const BRC={mega:'#36c5a8',auezov:'#5b9bf2',alatau:'#f5b945',medeu:'#f4576b',shym:'#a78bfa',aktau:'#34d399',aktobe:'#fb923c',atyrau:'#22d3ee'};
 const hasDaily=()=> (curBr()?[curBr()]:BR).some(x=>x.daily);
 function aggMonth(daily){const o={};for(const k in daily)o[k.slice(0,7)]=(o[k.slice(0,7)]||0)+daily[k];return o;}
@@ -245,14 +300,18 @@ function availYears(){const set=new Set(),src=curBr()?[curBr()]:BR;
 function trendData(){
   const b=curBr();
   let gran=trendGran; if(gran==='day' && !hasDaily()) gran='month';
-  const inYear=k=>trendYear==='all'||k.slice(0,4)===trendYear;
+  const useRange=trendFrom&&trendTo;
+  const inFilter=k=>{
+    if(useRange){if(k.length===7)return k>=trendFrom.slice(0,7)&&k<=trendTo.slice(0,7);return k>=trendFrom&&k<=trendTo;}
+    return trendYear==='all'||k.slice(0,4)===trendYear;
+  };
   if(b){
-    const m=periodMap(b,gran), keys=Object.keys(m).filter(inYear).sort();
+    const m=periodMap(b,gran), keys=Object.keys(m).filter(inFilter).sort();
     if(!keys.length) return null;
     return {gran,keys,labels:keys.map(k=>gran==='day'?dayLabel(k):monLabel(k)),data:keys.map(k=>m[k])};
   }
   const set=new Set();
-  BR.forEach(x=>{const m=periodMap(x,gran);for(const k in m)if(inYear(k))set.add(k);});
+  BR.forEach(x=>{const m=periodMap(x,gran);for(const k in m)if(inFilter(k))set.add(k);});
   const keys=[...set].sort();
   if(!keys.length) return null;
   return {gran,keys,labels:keys.map(k=>gran==='day'?dayLabel(k):monLabel(k)),data:keys.map(k=>BR.reduce((a,x)=>a+(periodMap(x,gran)[k]||0),0))};
@@ -321,7 +380,12 @@ function rr(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);
 reg('cSent',(x,w,h)=>{const s=scSent();donut(x,w,h,[{v:s.pos,c:cv('--pos')},{v:s.neu,c:cv('--neu')},{v:s.neg,c:cv('--neg')}],{big:s.pos+'%',sm:'позитив'});});
 let trendPts=[];
 reg('cTrend',(x,w,h)=>{const t=trendData();
-  if(!t){trendPts=[];line(x,w,h,TREND.labels,TREND.vol,cv('--brand'));return;}
+  if(!t){trendPts=[];
+    if(trendFrom||trendYear!=='all'){
+      x.fillStyle=cv('--muted');x.font='14px ui-sans-serif';x.textAlign='center';x.textBaseline='middle';
+      x.fillText('Нет отзывов в выбранном периоде',w/2,h/2);return;
+    }
+    line(x,w,h,TREND.labels,TREND.vol,cv('--brand'));return;}
   trendPts=line(x,w,h,t.labels,t.data,cv('--brand'));});
 reg('cBranch',(x,w,h)=>hbars(x,w,h,[...BR].sort((a,b)=>b.r-a.r).map(b=>({l:b.nm.replace('JOO ',''),v:b.r,t:b.r.toFixed(1),c:cv(rc(b.r).slice(4,-1))})),5));
 reg('cThemeP',(x,w,h)=>{const d=scPraise(),mx=Math.max(...d.map(p=>p[1]),1);hbars(x,w,h,d.map(p=>({l:p[0],v:p[1],t:p[1]+'%',c:cv('--pos')})),mx);});
@@ -381,24 +445,34 @@ function obView(){const b=curBr();const s=scSent();
 
 function trendControls(){
   const years=availYears();
-  const yb=`<button class="yb${trendYear==='all'?' active':''}" data-ty="all">Все</button>`+
+  const yb=`<button class="yb${trendYear==='all'&&!trendFrom?' active':''}" data-ty="all">Все</button>`+
     years.map(y=>`<button class="yb${trendYear===y?' active':''}" data-ty="${y}">${y}</button>`).join('');
   const dayOff=hasDaily()?'':' disabled title="нужно пересобрать данные новой кнопкой"';
   const gb=`<button class="yb${trendGran==='month'?' active':''}" data-tg="month">Месяцы</button>`+
     `<button class="yb${trendGran==='day'?' active':''}" data-tg="day"${dayOff}>Дни</button>`;
-  return `<div class="tctl">${yb}<span class="sep"></span>${gb}</div>`;}
+  const pb=`<button class="yb dpbtn${pickerOpen?' active':''}" data-pickopen>📅 Период</button>`+
+    (trendFrom&&trendTo?`<span class="dpchip" data-pick="reset">${fmtRange()} <span style="opacity:.7">✕</span></span>`:'');
+  return `<div class="tctl">${yb}<span class="sep"></span>${gb}<span class="sep"></span>${pb}</div>`;}
 function trendCard(title){
   const t=trendData(), n=t?t.labels.length:9;
-  const px=(t&&t.gran==='day')?22:60;            // ширина на одну точку
-  const cw=Math.max(0,n*px);                       // желаемая ширина холста
+  const px=(t&&t.gran==='day')?22:60;
+  const cw=Math.max(0,n*px);
   return `<div class="card"><h2 class="sec" style="margin-top:0">${title}</h2>${trendControls()}
+    ${pickerOpen?pickerPanel():''}
     <div class="chartscroll"><div class="chartwrap" style="width:${cw}px;min-width:100%">
       <canvas id="cTrend" style="width:100%;height:280px;display:block"></canvas>
       <div class="tip" id="cTrendTip"></div></div></div>
     ${trendNote()}</div>`;}
-function trendNote(){const t=trendData();return t
-  ? `<p class="note">По реальным датам отзывов с 2ГИС. Наведи на точку — покажет число; если точек много — прокрути график вбок.</p>`
-  : `<p class="note">Иллюстративно: реальные даты появятся после сбора новой версией кнопки.</p>`;}
+function trendNote(){const t=trendData();
+  if(!t){
+    if(trendFrom||trendYear!=='all') return `<p class="note">В выбранном периоде нет отзывов.</p>`;
+    return `<p class="note">Иллюстративно: реальные даты появятся после сбора новой версией кнопки.</p>`;
+  }
+  if(t.gran==='month' && trendFrom && trendTo){
+    const days=Math.round((parseYmd(trendTo)-parseYmd(trendFrom))/86400000)+1;
+    if(days<=62 && !hasDaily()) return `<p class="note">Сейчас показаны месяцы. Чтобы видеть по дням — пересобери данные новой кнопкой, она сохраняет даты по дням.</p>`;
+  }
+  return `<p class="note">По реальным датам отзывов с 2ГИС. Наведи на точку — покажет число; если точек много — прокрути график вбок.</p>`;}
 
 function praiseView(){const b=curBr();const d=scPraise();const q=scRevs().filter(r=>r.s=='pos').slice(0,6);
   return scopeHead()+`<p class="lead">${b?`Что ценят в филиале <b>${b.nm}</b>.`:'Что ценят по всей сети.'} Главный актив — конкретные учителя и кураторы.</p>
@@ -495,8 +569,29 @@ tb.addEventListener('click',()=>{const l=document.documentElement.getAttribute('
 main.addEventListener('input',e=>{if(['q','fb','fs'].includes(e.target.id)){revPage=0;renderRevs();}});
 main.addEventListener('change',e=>{if(['fb','fs'].includes(e.target.id)){revPage=0;renderRevs();}});
 main.addEventListener('click',e=>{
-  const yb=e.target.closest('.yb[data-ty]');if(yb){trendYear=yb.dataset.ty;render();return;}
+  const yb=e.target.closest('.yb[data-ty]');if(yb){trendYear=yb.dataset.ty;trendFrom=null;trendTo=null;pickerOpen=false;render();return;}
   const gb=e.target.closest('.yb[data-tg]');if(gb&&!gb.disabled){trendGran=gb.dataset.tg;render();return;}
+  const op=e.target.closest('[data-pickopen]');if(op){if(pickerOpen)pickerOpen=false;else openPicker();render();return;}
+  const pre=e.target.closest('[data-pickpre]');if(pre){const now=new Date();now.setHours(0,0,0,0);
+    const yest=new Date(now);yest.setDate(yest.getDate()-1);
+    const d7s=new Date(now);d7s.setDate(d7s.getDate()-6);
+    const d30s=new Date(now);d30s.setDate(d30s.getDate()-29);
+    const tms=new Date(now.getFullYear(),now.getMonth(),1);
+    const lms=new Date(now.getFullYear(),now.getMonth()-1,1);
+    const lme=new Date(now.getFullYear(),now.getMonth(),0);
+    const M={today:[now,now],yest:[yest,yest],d7:[d7s,now],d30:[d30s,now],tmonth:[tms,now],lmonth:[lms,lme]};
+    const [a,b]=M[pre.dataset.pickpre];trendFrom=ymdStr(a);trendTo=ymdStr(b);trendYear='custom';pickerOpen=false;
+    if(hasDaily())trendGran='day';render();return;}
+  const nav=e.target.closest('[data-picknav]');if(nav){pickerMonth=addMon(pickerMonth,+nav.dataset.picknav);render();return;}
+  const day=e.target.closest('[data-pickday]');if(day){const D=parseYmd(day.dataset.pickday);
+    if(!pickFrom||(pickFrom&&pickTo)){pickFrom=D;pickTo=null;}
+    else{if(D<pickFrom){pickTo=pickFrom;pickFrom=D;}else{pickTo=D;}}
+    render();return;}
+  const act=e.target.closest('[data-pick]');if(act){const a=act.dataset.pick;
+    if(a==='apply'&&pickFrom&&pickTo){trendFrom=ymdStr(pickFrom);trendTo=ymdStr(pickTo);trendYear='custom';pickerOpen=false;if(hasDaily())trendGran='day';render();return;}
+    if(a==='cancel'){pickerOpen=false;render();return;}
+    if(a==='reset'){trendFrom=null;trendTo=null;pickFrom=null;pickTo=null;trendYear='all';pickerOpen=false;render();return;}
+  }
   const pg=e.target.closest('#revPg button');if(pg){revPage=+pg.dataset.p;renderRevs();return;}
   const th=e.target.closest('#branchCard th');if(th){const k=th.dataset.k;if(sortKey==k)sortDir*=-1;else{sortKey=k;sortDir=(k=='nm'||k=='city')?1:-1;}document.getElementById('branchCard').innerHTML=branchTable();return;}
   const tr=e.target.closest('tr.click');if(tr){cur=tr.dataset.go;tab='ob';revPage=0;render();window.scrollTo({top:0,behavior:'smooth'});}
