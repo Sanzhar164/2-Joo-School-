@@ -100,6 +100,13 @@
   .tctl .yb:disabled{opacity:.4;cursor:not-allowed}
   .tctl .sep{width:1px;height:18px;background:var(--line);margin:0 4px}
   .chartwrap{position:relative}
+  .rdist{display:flex;flex-direction:column;gap:10px}
+  .rdrow{display:grid;grid-template-columns:38px 1fr 54px;align-items:center;gap:14px}
+  .rdlbl{color:var(--muted);font-size:13px;font-weight:600}
+  .rdbar{position:relative;background:rgba(255,255,255,.04);border-radius:8px;height:28px;overflow:hidden}
+  .rdfill{position:absolute;left:0;top:0;bottom:0;border-radius:8px;min-width:4px;transition:width .5s cubic-bezier(.2,.85,.25,1);display:flex;align-items:center;padding-left:10px}
+  .rdcnt{color:#fff;font-weight:800;font-size:12px;text-shadow:0 1px 2px rgba(0,0,0,.4);white-space:nowrap}
+  .rdpct{color:var(--muted);font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
   .chartscroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
   .chartscroll::-webkit-scrollbar{height:8px}
   .chartscroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
@@ -458,6 +465,32 @@ function kpiRow(){const b=curBr();
     <div class="card kpi"><div class="lab">Позитив (оценка)</div><div class="big" style="color:var(--pos)">${b.sent.pos}%</div><div class="sub">негатив ${b.sent.neg}%</div></div>
     <div class="card kpi"><div class="lab">Место в сети</div><div class="big">${rank}<span style="font-size:20px;color:var(--muted)">/8</span></div><div class="sub">${rank<=2?'один из лучших':rank>=7?'требует внимания':'в середине'}</div></div></div>`;}
 
+function ratingDist(){
+  const b=curBr(),src=b?[b]:BR;
+  const d={1:0,2:0,3:0,4:0,5:0};let total=0,has=false;
+  src.forEach(x=>{if(x.rdist){has=true;for(let r=1;r<=5;r++){const c=x.rdist[r]||0;d[r]+=c;total+=c;}}});
+  if(!has||total===0)return null;
+  return {d,total};
+}
+function rdistCard(){
+  const rd=ratingDist();
+  if(!rd) return `<div class="card"><h2 class="sec" style="margin-top:0">Оценки</h2>
+    <p class="note" style="margin:14px 0 0">Разбивка по звёздам появится после пересбора данных свежей кнопкой «Обновить JOO» (она теперь сохраняет распределение 1★…5★).</p></div>`;
+  const C={5:'#22c55e',4:'#84cc16',3:'#eab308',2:'#f97316',1:'#ef4444'};
+  const max=Math.max(...Object.values(rd.d),1);
+  const rows=[5,4,3,2,1].map(r=>{
+    const c=rd.d[r], pct=rd.total>0?c/rd.total*100:0, fillW=c/max*100;
+    return `<div class="rdrow">
+      <div class="rdlbl">${r}★</div>
+      <div class="rdbar"><div class="rdfill" style="width:${fillW}%;background:${C[r]}">${c>0?`<span class="rdcnt">${c}</span>`:''}</div></div>
+      <div class="rdpct">${pct<1&&c>0?'<1':Math.round(pct)}%</div>
+    </div>`;
+  }).join('');
+  return `<div class="card"><h2 class="sec" style="margin-top:0">Оценки</h2>
+    <div class="rdist" style="margin-top:14px">${rows}</div>
+    <p class="note" style="margin-top:14px">Всего отзывов: <b>${rd.total}</b>. Длина полоски — относительно самой популярной оценки.</p></div>`;
+}
+
 function obView(){const b=curBr();const s=scSent();
   const right=`<div class="card"><h2 class="sec" style="margin-top:0">Сентимент (оценка)</h2><canvas id="cSent" style="height:200px"></canvas>
     <div class="legend"><span><i style="background:var(--pos)"></i>Позитив ${s.pos}%</span><span><i style="background:var(--neu)"></i>Нейтрал ${s.neu}%</span><span><i style="background:var(--neg)"></i>Негатив ${s.neg}%</span></div></div>`;
@@ -465,6 +498,7 @@ function obView(){const b=curBr();const s=scSent();
     return scopeHead()+`<p class="lead">Сводка по всей сети. Выбери филиал в строке выше, чтобы увидеть отдельный отчёт по нему. Рейтинги и число оценок — фактические с 2ГИС; сентимент, NPS и тренд — оценочные по выборке.</p>
       ${kpiRow()}
       <div style="margin-top:16px">${trendCard('Динамика · вся сеть')}</div>
+      <div style="margin-top:16px">${rdistCard()}</div>
       <div class="grid c21" style="margin-top:16px">
         ${right}
         <div class="card"><h2 class="sec" style="margin-top:0">🏅 Топ-3 / ⚠️ Внимание</h2>
@@ -475,6 +509,7 @@ function obView(){const b=curBr();const s=scSent();
   return scopeHead()+`<p class="lead">Отдельный отчёт по филиалу <b>${b.nm}</b> (${b.city}). Ниже — его рейтинг, сентимент, что хвалят и что критикуют именно в этом филиале.</p>
     ${kpiRow()}
     <div style="margin-top:16px">${trendCard('Динамика · '+b.nm)}</div>
+    <div style="margin-top:16px">${rdistCard()}</div>
     <div class="grid c21" style="margin-top:16px">
       <div class="card"><h2 class="sec" style="margin-top:0">Что хвалят в этом филиале</h2><canvas id="cThemeP" style="height:200px"></canvas></div>
       ${right}</div>
