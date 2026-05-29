@@ -381,7 +381,7 @@ function line(x,w,h,labels,data,col){const padL=30,padR=12,padT=14,padB=24,gw=w-
   data.forEach((v,i)=>{const X=px(i),Y=py(v);pts.push({x:X,y:Y,v,label:labels[i]});x.beginPath();x.arc(X,Y,3,0,7);x.fillStyle=col;x.fill();
     if(i%step===0||i===n-1){x.fillStyle=cv('--muted');x.font='10px ui-sans-serif';x.textAlign='center';x.textBaseline='top';x.fillText(labels[i],X,padT+gh+6);}});
   return pts;}
-const rcRating=r=>r>=4.5?'#22c55e':r>=4?'#eab308':r>=3.5?'#f97316':'#ef4444';
+const rcRating=r=>r>=4?'#22c55e':r>=3?'#eab308':'#ef4444';
 function bars(x,w,h,labels,stats){
   const padL=30,padR=12,padT=40,padB=44,gw=w-padL-padR,gh=h-padT-padB;
   const mx=Math.max(...stats.map(s=>s.n),1)*1.18;
@@ -495,7 +495,7 @@ function trendNote(){const t=trendStats();
   }
   const hasAvg=t.stats.some(s=>s.avg>0);
   if(!hasAvg) return `<p class="note">Высота столбика — число отзывов за месяц. Чтобы увидеть рейтинг и негатив по месяцам — пересобери данные обновлённой кнопкой.</p>`;
-  return `<p class="note">Сверху столбика — средний рейтинг за месяц (🟢 ≥4.5 · 🟡 ≥4.0 · 🟠 ≥3.5 · 🔴 ниже). Красная полоса снизу — доля отзывов с оценкой 1–2★.</p>`;}
+  return `<p class="note">Сверху столбика — средний рейтинг за месяц (🟢 ≥4.0 · 🟡 3.0–4.0 · 🔴 ниже). Красная полоса снизу — доля отзывов с оценкой 1–2★.</p>`;}
 
 function praiseView(){const b=curBr();const d=scPraise();const q=scRevs().filter(r=>r.s=='pos').slice(0,6);
   return scopeHead()+`<p class="lead">${b?`Что ценят в филиале <b>${b.nm}</b>.`:'Что ценят по всей сети.'} Главный актив — конкретные учителя и кураторы.</p>
