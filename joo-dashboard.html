@@ -128,8 +128,8 @@
   .dpbtn-prim:disabled{opacity:.4;cursor:not-allowed}
   .dpbtn-sec{background:none;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px}
   .dpbtn-sec:hover{border-color:var(--brand)}
-  .tip{position:absolute;left:0;top:0;pointer-events:none;background:var(--panel);border:1px solid var(--brand);border-radius:9px;padding:6px 10px;font-size:12px;color:var(--ink);box-shadow:var(--shadow);opacity:0;transform:translate(-50%,-130%);white-space:nowrap;transition:opacity .08s;z-index:5}
-  .tip b{color:var(--brand);font-size:14px}
+  .tip{position:absolute;left:0;top:0;pointer-events:none;background:rgba(17,24,39,.95);border:1px solid var(--brand);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--ink);box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;transform:translate(-50%,-110%);white-space:nowrap;transition:opacity .12s;z-index:5;line-height:1.6;backdrop-filter:blur(8px)}
+  .tip b{color:var(--brand);font-size:13px}
   .foot{font-size:12px;color:var(--muted);text-align:center;margin-top:42px;line-height:1.7}
 </style>
 </head>
@@ -390,7 +390,7 @@ function bars(x,w,h,labels,stats){
   x.strokeStyle=cv('--line');x.lineWidth=1;x.beginPath();x.moveTo(padL,yBase);x.lineTo(w-padR,yBase);x.stroke();
   const pts=[];
   stats.forEach((s,i)=>{const X=px(i),yTop=py(s.n),hPos=yBase-yTop;
-    if(s.n>0){const r=Math.min(4,bw/2,hPos/2);rr(x,X-bw/2,yTop,bw,hPos,r);x.fillStyle='#3b82f6';x.fill();
+    if(s.n>0){const r=Math.min(4,bw/2,hPos/2);rr(x,X-bw/2,yTop,bw,hPos,r);x.fillStyle='#22c55e';x.fill();
       if(s.neg>0){const negH=hPos*(s.neg/s.n);x.fillStyle='rgba(127,29,29,.85)';x.fillRect(X-bw/2,yBase-negH,bw,negH);}
       if(s.avg>0){x.fillStyle=rcRating(s.avg);x.font='bold 12px ui-sans-serif';x.textAlign='center';x.textBaseline='bottom';x.fillText(s.avg.toFixed(2),X,yTop-4);}}
     x.fillStyle=cv('--ink');x.font='11px ui-sans-serif';x.textAlign='center';x.textBaseline='top';x.fillText(s.n,X,yBase+5);
@@ -495,7 +495,7 @@ function trendNote(){const t=trendStats();
   }
   const hasAvg=t.stats.some(s=>s.avg>0);
   if(!hasAvg) return `<p class="note">Высота столбика — число отзывов за месяц. Чтобы увидеть рейтинг и негатив по месяцам — пересобери данные обновлённой кнопкой.</p>`;
-  return `<p class="note">Сверху столбика — средний рейтинг за месяц (🟢 ≥4.0 · 🟡 3.0–4.0 · 🔴 ниже). Красная полоса снизу — доля отзывов с оценкой 1–2★.</p>`;}
+  return `<p class="note">Зелёная часть — позитивные отзывы (4–5★), красная — негативные (1–2★). Цифра сверху — средний рейтинг за месяц (🟢 ≥4.0 · 🟡 3.0–4.0 · 🔴 ниже). Наведи на столбик — увидишь проценты.</p>`;}
 
 function praiseView(){const b=curBr();const d=scPraise();const q=scRevs().filter(r=>r.s=='pos').slice(0,6);
   return scopeHead()+`<p class="lead">${b?`Что ценят в филиале <b>${b.nm}</b>.`:'Что ценят по всей сети.'} Главный актив — конкретные учителя и кураторы.</p>
@@ -627,9 +627,14 @@ main.addEventListener('mousemove',e=>{
   const r=c.getBoundingClientRect(),mx=e.clientX-r.left;
   let best=null,bd=1e9;for(const p of trendPts){const d=Math.abs(p.x-mx);if(d<bd){bd=d;best=p;}}
   if(best&&bd<Math.max(20,trendBw/2+4)){
+    const pos=best.n-best.neg;
+    const posPct=best.n>0?Math.round(pos/best.n*100):0;
+    const negPct=best.n>0?Math.round(best.neg/best.n*100):0;
     const rate=best.avg>0?` · ⭐ <b style="color:${rcRating(best.avg)}">${best.avg.toFixed(2)}</b>`:'';
-    const neg=best.neg>0?` · 👎 <b>${best.neg}</b>`:'';
-    tip.innerHTML=`<div style="font-weight:700;margin-bottom:3px">${best.label}</div><div>${best.n} отз.${rate}${neg}</div>`;
+    tip.innerHTML=`<div style="font-weight:700;margin-bottom:4px">${best.label}</div>
+      <div style="margin-bottom:3px"><b>${best.n}</b> отз.${rate}</div>
+      <div style="color:#22c55e">🟢 Позитив: <b>${pos}</b> (${posPct}%)</div>
+      ${best.neg>0?`<div style="color:#ef4444">🔴 Негатив: <b>${best.neg}</b> (${negPct}%)</div>`:''}`;
     tip.style.left=best.x+'px';tip.style.top=best.y+'px';tip.style.opacity=1;}
   else tip.style.opacity=0;
 });
