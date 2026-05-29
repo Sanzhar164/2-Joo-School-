@@ -128,8 +128,13 @@
   .dpbtn-prim:disabled{opacity:.4;cursor:not-allowed}
   .dpbtn-sec{background:none;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px}
   .dpbtn-sec:hover{border-color:var(--brand)}
-  .tip{position:absolute;left:0;top:0;pointer-events:none;background:rgba(17,24,39,.95);border:1px solid var(--brand);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--ink);box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;transform:translate(-50%,-110%);white-space:nowrap;transition:opacity .12s;z-index:5;line-height:1.6;backdrop-filter:blur(8px)}
-  .tip b{color:var(--brand);font-size:13px}
+  .tip{position:absolute;left:0;top:0;pointer-events:none;background:rgba(15,23,42,.92);border:1px solid rgba(54,197,168,.35);border-radius:12px;padding:11px 14px;font-size:12px;color:var(--ink);box-shadow:0 14px 36px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04) inset;opacity:0;transform:translate(-50%,-110%) scale(.94);white-space:nowrap;z-index:5;line-height:1.45;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:opacity .18s ease,transform .22s cubic-bezier(.2,.85,.25,1);min-width:160px}
+  .tip b{color:var(--ink);font-weight:700}
+  .tip .tiphd{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:7px;padding-bottom:7px;border-bottom:1px solid rgba(255,255,255,.07)}
+  .tip .tipmain{font-size:13px;margin-bottom:7px}
+  .tip .tipmain b{font-size:15px}
+  .tip .tiprow{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:12px}
+  .tip .tipdot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
   .foot{font-size:12px;color:var(--muted);text-align:center;margin-top:42px;line-height:1.7}
 </style>
 </head>
@@ -630,18 +635,18 @@ main.addEventListener('mousemove',e=>{
     const pos=best.n-best.neg;
     const posPct=best.n>0?Math.round(pos/best.n*100):0;
     const negPct=best.n>0?Math.round(best.neg/best.n*100):0;
-    const rate=best.avg>0?` · ⭐ <b style="color:${rcRating(best.avg)}">${best.avg.toFixed(2)}</b>`:'';
-    tip.innerHTML=`<div style="font-weight:700;margin-bottom:4px">${best.label}</div>
-      <div style="margin-bottom:3px"><b>${best.n}</b> отз.${rate}</div>
-      <div style="color:#22c55e">🟢 Позитив: <b>${pos}</b> (${posPct}%)</div>
-      ${best.neg>0?`<div style="color:#ef4444">🔴 Негатив: <b>${best.neg}</b> (${negPct}%)</div>`:''}`;
+    const rate=best.avg>0?`<span style="margin-left:8px">⭐ <b style="color:${rcRating(best.avg)}">${best.avg.toFixed(2)}</b></span>`:'';
+    tip.innerHTML=`<div class="tiphd">${best.label}</div>
+      <div class="tipmain"><b>${best.n}</b> отз.${rate}</div>
+      <div class="tiprow" style="color:#22c55e"><span class="tipdot" style="background:#22c55e"></span>Позитив: <b>${pos}</b> · ${posPct}%</div>
+      ${best.neg>0?`<div class="tiprow" style="color:#ef4444"><span class="tipdot" style="background:#ef4444"></span>Негатив: <b>${best.neg}</b> · ${negPct}%</div>`:''}`;
     tip.style.left=best.x+'px';
-    // если столбик высокий и места сверху мало — показываем снизу
-    const flip=best.y<110;
-    if(flip){tip.style.top=(best.y+12)+'px';tip.style.transform='translate(-50%,0)';}
-    else{tip.style.top=best.y+'px';tip.style.transform='translate(-50%,-110%)';}
+    const flip=best.y<120;
+    if(flip){tip.style.top=(best.y+14)+'px';tip.style.transform='translate(-50%,0) scale(1)';}
+    else{tip.style.top=best.y+'px';tip.style.transform='translate(-50%,-110%) scale(1)';}
     tip.style.opacity=1;}
-  else tip.style.opacity=0;
+  else{tip.style.opacity=0;
+    if(tip.style.transform)tip.style.transform=tip.style.transform.replace('scale(1)','scale(.94)');}
 });
 main.addEventListener('mouseleave',()=>{const tip=document.getElementById('cTrendTip');if(tip)tip.style.opacity=0;});
 let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(drawVisible,150);});
