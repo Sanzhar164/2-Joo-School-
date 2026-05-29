@@ -336,13 +336,13 @@ function trendStats(){
   const inFilter=ym=>{if(useRange)return ym>=trendFrom.slice(0,7)&&ym<=trendTo.slice(0,7);return trendYear==='all'||ym.slice(0,4)===trendYear;};
   const acc={};let any=false;
   src.forEach(x=>{
-    if(x.mstats){any=true;for(const ym in x.mstats){if(!inFilter(ym))continue;const s=x.mstats[ym];if(!acc[ym])acc[ym]={n:0,sum:0,neg:0};acc[ym].n+=s.n||0;acc[ym].sum+=s.sum||0;acc[ym].neg+=s.neg||0;}}
-    else if(x.monthly){any=true;for(const ym in x.monthly){if(!inFilter(ym))continue;if(!acc[ym])acc[ym]={n:0,sum:0,neg:0};acc[ym].n+=x.monthly[ym]||0;}}
+    if(x.mstats){any=true;for(const ym in x.mstats){if(!inFilter(ym))continue;const s=x.mstats[ym];if(!acc[ym])acc[ym]={n:0,sum:0,neg:0,neu:0,hasNeu:false};acc[ym].n+=s.n||0;acc[ym].sum+=s.sum||0;acc[ym].neg+=s.neg||0;if(s.neu!=null){acc[ym].neu+=s.neu;acc[ym].hasNeu=true;}}}
+    else if(x.monthly){any=true;for(const ym in x.monthly){if(!inFilter(ym))continue;if(!acc[ym])acc[ym]={n:0,sum:0,neg:0,neu:0,hasNeu:false};acc[ym].n+=x.monthly[ym]||0;}}
   });
   if(!any) return null;
   const keys=Object.keys(acc).sort();
   if(!keys.length) return null;
-  return {keys,labels:keys.map(monLabel),stats:keys.map(k=>{const a=acc[k];return {n:a.n,avg:a.sum>0&&a.n>0?a.sum/a.n:0,neg:a.neg};})};
+  return {keys,labels:keys.map(monLabel),stats:keys.map(k=>{const a=acc[k];return {n:a.n,avg:a.sum>0&&a.n>0?a.sum/a.n:0,neg:a.neg,neu:a.hasNeu?a.neu:null};})};
 }
 
 /* ===================== РАСЧЁТЫ ===================== */
@@ -403,11 +403,12 @@ function bars(x,w,h,labels,stats){
   const pts=[];
   stats.forEach((s,i)=>{const X=px(i),yTop=py(s.n),hPos=yBase-yTop;
     if(s.n>0){const r=Math.min(4,bw/2,hPos/2);rr(x,X-bw/2,yTop,bw,hPos,r);x.fillStyle='#22c55e';x.fill();
+      if(s.neu!=null && s.neu>0){const yelH=hPos*((s.neu+s.neg)/s.n);x.fillStyle='#eab308';x.fillRect(X-bw/2,yBase-yelH,bw,yelH);}
       if(s.neg>0){const negH=hPos*(s.neg/s.n);x.fillStyle='#ef4444';x.fillRect(X-bw/2,yBase-negH,bw,negH);}
       if(s.avg>0){x.fillStyle=rcRating(s.avg);x.font='bold 12px ui-sans-serif';x.textAlign='center';x.textBaseline='bottom';x.fillText(s.avg.toFixed(2),X,yTop-4);}}
     x.fillStyle=cv('--ink');x.font='11px ui-sans-serif';x.textAlign='center';x.textBaseline='top';x.fillText(s.n,X,yBase+5);
     x.fillStyle=cv('--muted');x.font='10px ui-sans-serif';x.fillText(labels[i],X,yBase+22);
-    pts.push({x:X,y:yTop,n:s.n,avg:s.avg,neg:s.neg,label:labels[i],bw});});
+    pts.push({x:X,y:yTop,n:s.n,avg:s.avg,neg:s.neg,neu:s.neu,label:labels[i],bw});});
   return pts;}
 function multiLine(x,w,h,labels,series){const padL=30,padR=12,padT=14,padB=24,gw=w-padL-padR,gh=h-padT-padB;
   let mx=1;series.forEach(s=>s.data.forEach(v=>{if(v>mx)mx=v;}));mx*=1.1;
@@ -544,7 +545,7 @@ function trendNote(){const t=trendStats();
   }
   const hasAvg=t.stats.some(s=>s.avg>0);
   if(!hasAvg) return `<p class="note">Высота столбика — число отзывов за месяц. Чтобы увидеть рейтинг и негатив по месяцам — пересобери данные обновлённой кнопкой.</p>`;
-  return `<p class="note">Зелёная часть — позитивные отзывы (4–5★), красная — негативные (1–2★). Цифра сверху — средний рейтинг за месяц (🟢 ≥4.0 · 🟡 3.0–4.0 · 🔴 ниже). Наведи на столбик — увидишь проценты.</p>`;}
+  return `<p class="note">🟢 Позитив (4–5★) · 🟡 Нейтрал (3★) · 🔴 Негатив (1–2★). Цифра сверху — средний рейтинг за месяц. Наведи на столбик — увидишь точные числа и проценты.</p>`;}
 
 function praiseView(){const b=curBr();const d=scPraise();const q=scRevs().filter(r=>r.s=='pos').slice(0,6);
   return scopeHead()+`<p class="lead">${b?`Что ценят в филиале <b>${b.nm}</b>.`:'Что ценят по всей сети.'} Главный актив — конкретные учителя и кураторы.</p>
@@ -676,14 +677,19 @@ main.addEventListener('mousemove',e=>{
   const r=c.getBoundingClientRect(),mx=e.clientX-r.left;
   let best=null,bd=1e9;for(const p of trendPts){const d=Math.abs(p.x-mx);if(d<bd){bd=d;best=p;}}
   if(best&&bd<Math.max(20,trendBw/2+4)){
-    const pos=best.n-best.neg;
+    const hasNeu=best.neu!=null;
+    const neu=hasNeu?best.neu:0;
+    const pos=best.n-neu-best.neg;
     const posPct=best.n>0?Math.round(pos/best.n*100):0;
+    const neuPct=best.n>0?Math.round(neu/best.n*100):0;
     const negPct=best.n>0?Math.round(best.neg/best.n*100):0;
     const rate=best.avg>0?`<span style="margin-left:8px">⭐ <b style="color:${rcRating(best.avg)}">${best.avg.toFixed(2)}</b></span>`:'';
+    const posLabel=hasNeu?'Позитив (4–5★)':'Позитив';
     tip.innerHTML=`<div class="tiphd">${best.label}</div>
       <div class="tipmain"><b>${best.n}</b> отз.${rate}</div>
-      <div class="tiprow" style="color:#22c55e"><span class="tipdot" style="background:#22c55e"></span>Позитив: <b>${pos}</b> · ${posPct}%</div>
-      ${best.neg>0?`<div class="tiprow" style="color:#ef4444"><span class="tipdot" style="background:#ef4444"></span>Негатив: <b>${best.neg}</b> · ${negPct}%</div>`:''}`;
+      <div class="tiprow" style="color:#22c55e"><span class="tipdot" style="background:#22c55e"></span>${posLabel}: <b>${pos}</b> · ${posPct}%</div>
+      ${hasNeu&&neu>0?`<div class="tiprow" style="color:#eab308"><span class="tipdot" style="background:#eab308"></span>Нейтрал (3★): <b>${neu}</b> · ${neuPct}%</div>`:''}
+      ${best.neg>0?`<div class="tiprow" style="color:#ef4444"><span class="tipdot" style="background:#ef4444"></span>Негатив (1–2★): <b>${best.neg}</b> · ${negPct}%</div>`:''}`;
     tip.style.left=best.x+'px';
     const flip=best.y<120;
     if(flip){tip.style.top=(best.y+14)+'px';tip.style.transform='translate(-50%,0) scale(1)';}
