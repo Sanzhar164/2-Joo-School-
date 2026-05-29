@@ -635,7 +635,12 @@ main.addEventListener('mousemove',e=>{
       <div style="margin-bottom:3px"><b>${best.n}</b> отз.${rate}</div>
       <div style="color:#22c55e">🟢 Позитив: <b>${pos}</b> (${posPct}%)</div>
       ${best.neg>0?`<div style="color:#ef4444">🔴 Негатив: <b>${best.neg}</b> (${negPct}%)</div>`:''}`;
-    tip.style.left=best.x+'px';tip.style.top=best.y+'px';tip.style.opacity=1;}
+    tip.style.left=best.x+'px';
+    // если столбик высокий и места сверху мало — показываем снизу
+    const flip=best.y<110;
+    if(flip){tip.style.top=(best.y+12)+'px';tip.style.transform='translate(-50%,0)';}
+    else{tip.style.top=best.y+'px';tip.style.transform='translate(-50%,-110%)';}
+    tip.style.opacity=1;}
   else tip.style.opacity=0;
 });
 main.addEventListener('mouseleave',()=>{const tip=document.getElementById('cTrendTip');if(tip)tip.style.opacity=0;});
