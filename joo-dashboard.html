@@ -413,8 +413,10 @@ reg('cSent',(x,w,h)=>{const s=scSent();donut(x,w,h,[{v:s.pos,c:cv('--pos')},{v:s
 let trendPts=[],trendBw=40;
 reg('cTrend',(x,w,h)=>{const t=trendStats();
   if(!t){trendPts=[];
-    if(trendFrom||trendYear!=='all'){x.fillStyle=cv('--muted');x.font='14px ui-sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('Нет отзывов в выбранном периоде',w/2,h/2);return;}
-    line(x,w,h,TREND.labels,TREND.vol,cv('--brand'));return;}
+    x.fillStyle=cv('--muted');x.font='14px ui-sans-serif';x.textAlign='center';x.textBaseline='middle';
+    if(trendFrom||trendYear!=='all') x.fillText('Нет отзывов в выбранном периоде',w/2,h/2);
+    else {x.fillText('Нет данных. Собери их кнопкой «Обновить JOO» на 2gis.kz',w/2,h/2-12);x.font='12px ui-sans-serif';x.fillText('и залей свежий data.json на GitHub',w/2,h/2+10);}
+    return;}
   trendPts=bars(x,w,h,t.labels,t.stats);
   if(trendPts.length)trendBw=trendPts[0].bw;});
 reg('cBranch',(x,w,h)=>hbars(x,w,h,[...BR].sort((a,b)=>b.r-a.r).map(b=>({l:b.nm.replace('JOO ',''),v:b.r,t:b.r.toFixed(1),c:cv(rc(b.r).slice(4,-1))})),5));
