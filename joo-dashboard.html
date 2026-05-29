@@ -474,21 +474,30 @@ function ratingDist(){
 }
 function rdistCard(){
   const rd=ratingDist();
-  if(!rd) return `<div class="card"><h2 class="sec" style="margin-top:0">Оценки</h2>
-    <p class="note" style="margin:14px 0 0">Разбивка по звёздам появится после пересбора данных свежей кнопкой «Обновить JOO» (она теперь сохраняет распределение 1★…5★).</p></div>`;
+  if(!rd) return `<div class="card"><h2 class="sec" style="margin-top:0">Распределение по звёздам</h2>
+    <p class="note" style="margin:14px 0 0">Появится после пересбора данных свежей кнопкой «Обновить JOO» (она сохраняет разбивку 1★…5★).</p></div>`;
   const C={5:'#22c55e',4:'#84cc16',3:'#eab308',2:'#f97316',1:'#ef4444'};
   const max=Math.max(...Object.values(rd.d),1);
+  const b=curBr(),src=b?[b]:BR;
+  let totalVotes=0,totalRev=0;
+  src.forEach(x=>{totalVotes+=x.votes||0;totalRev+=x.rev||0;});
+  const noStar=Math.max(0,totalRev-rd.total);
   const rows=[5,4,3,2,1].map(r=>{
-    const c=rd.d[r], pct=rd.total>0?c/rd.total*100:0, fillW=c/max*100;
+    const c=rd.d[r], pct=totalRev>0?c/totalRev*100:0, fillW=c/max*100;
     return `<div class="rdrow">
       <div class="rdlbl">${r}★</div>
       <div class="rdbar"><div class="rdfill" style="width:${fillW}%;background:${C[r]}">${c>0?`<span class="rdcnt">${c}</span>`:''}</div></div>
       <div class="rdpct">${pct<1&&c>0?'<1':Math.round(pct)}%</div>
     </div>`;
   }).join('');
-  return `<div class="card"><h2 class="sec" style="margin-top:0">Оценки</h2>
-    <div class="rdist" style="margin-top:14px">${rows}</div>
-    <p class="note" style="margin-top:14px">Всего отзывов: <b>${rd.total}</b>. Длина полоски — относительно самой популярной оценки.</p></div>`;
+  const noStarRow=noStar>0?`<div class="rdrow" style="margin-top:6px;opacity:.6">
+      <div class="rdlbl" style="font-size:11px">без★</div>
+      <div class="rdbar"><div class="rdfill" style="width:${noStar/max*100}%;background:#475569"><span class="rdcnt">${noStar}</span></div></div>
+      <div class="rdpct">${Math.round(noStar/totalRev*100)}%</div>
+    </div>`:'';
+  return `<div class="card"><h2 class="sec" style="margin-top:0">Распределение по звёздам</h2>
+    <p class="note" style="margin:6px 0 14px">Всего отзывов с текстом: <b>${totalRev.toLocaleString('ru')}</b> (из <b>${totalVotes.toLocaleString('ru')}</b> общих оценок на 2ГИС).${noStar>0?` Из них <b>${rd.total}</b> с явной оценкой 1★–5★, <b>${noStar}</b> без проставленных звёзд.`:''}</p>
+    <div class="rdist">${rows}${noStarRow}</div></div>`;
 }
 
 function obView(){const b=curBr();const s=scSent();
